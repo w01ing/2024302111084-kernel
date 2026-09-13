@@ -1,0 +1,156 @@
+digraph timer_interrupt_journey {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="材料三：一次时钟中断的微观旅程",
+    labelloc=t,
+    fontsize=20,
+    pad=0.35,
+    nodesep=0.55,
+    ranksep=0.85,
+    splines=ortho,
+    outputorder=edgesfirst
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=12,
+    margin="0.12,0.08",
+    width=1.22,
+    height=0.52,
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  subgraph cluster_trap {
+    label="A. 硬件入陷与现场保存";
+    color="#8b5cf6";
+    penwidth=1.4;
+    style="rounded";
+    a1 [label="A1\nU态运行"];
+    a2 [label="A2\ntimer IRQ", fillcolor="#faf5ff"];
+    a3 [label="A3\nuservec"];
+    a4 [label="A4\nusertrap"];
+  }
+
+  subgraph cluster_tick {
+    label="B. 中断识别与 tick 更新";
+    color="#0ea5e9";
+    penwidth=1.4;
+    style="rounded";
+    b1 [label="B1\ndevintr"];
+    b2 [label="B2\nclockintr"];
+    b3 [label="B3\nyield?"];
+  }
+
+  subgraph cluster_sched {
+    label="C. 让步与调度交接";
+    color="#f59e0b";
+    penwidth=1.4;
+    style="rounded";
+    c1 [label="C1\np->RUNNABLE"];
+    c2 [label="C2\nswtch out"];
+    c3 [label="C3\nscheduler", shape=ellipse, fillcolor="#eff6ff", color="#2563eb"];
+    c4 [label="C4\npick P/Q"];
+  }
+
+  subgraph cluster_ret {
+    label="D. 恢复并返回用户态";
+    color="#22c55e";
+    penwidth=1.4;
+    style="rounded";
+    d1 [label="D1\nswtch in"];
+    d2 [label="D2\nusertrapret"];
+    d3 [label="D3\nuserret"];
+    d4 [label="D4\nsret", fillcolor="#f0fdf4"];
+  }
+
+  other [
+    label="运行其他进程 Q",
+    fillcolor="#fefce8",
+    color="#eab308"
+  ];
+
+  note_sepc [
+    shape=note,
+    label="批注1：timer IRQ 不是 ecall，\nsepc 不需要 +4。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.05
+  ];
+
+  note_ctx [
+    shape=note,
+    label="批注2：trapframe 保存用户寄存器；\nswtch 只保存内核上下文。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.25
+  ];
+
+  note_sched [
+    shape=note,
+    label="批注3：yield 提供调度点，\n不保证一定换到另一个进程。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.20
+  ];
+
+  legend [
+    shape=plain,
+    margin=0,
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#94a3b8">
+        <TR>
+          <TD BGCOLOR="#e2e8f0"><B>编号</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>动作</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>寄存器/现场</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>栈</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>特权/锁</B></TD>
+        </TR>
+        <TR><TD>A1</TD><TD>进程 P 在用户态执行</TD><TD>stvec=uservec; satp=P 用户页表</TD><TD>P 用户栈</TD><TD>U; 无锁</TD></TR>
+        <TR><TD>A2</TD><TD>Supervisor timer interrupt 到来</TD><TD>scause=0x8000000000000005; sepc=被中断 PC; SPP=U</TD><TD>硬件尚未切栈</TD><TD>U-&gt;S; 无锁</TD></TR>
+        <TR><TD>A3</TD><TD>uservec 在 trampoline 页运行</TD><TD>sscratch/a0 交换；保存用户寄存器到 p-&gt;trapframe；切 satp 到内核页表</TD><TD>P 内核栈</TD><TD>S; 无锁</TD></TR>
+        <TR><TD>A4</TD><TD>usertrap 保存 epc，stvec 改 kernelvec</TD><TD>p-&gt;trapframe-&gt;epc=r_sepc()</TD><TD>P 内核栈</TD><TD>S; 无锁</TD></TR>
+        <TR><TD>B1</TD><TD>devintr 识别 timer interrupt</TD><TD>读取 scause/sip 等 CSR</TD><TD>P 内核栈</TD><TD>S; 无锁</TD></TR>
+        <TR><TD>B2</TD><TD>clockintr 更新 ticks，唤醒 sleep(&amp;ticks)</TD><TD>设置下一次 stimecmp</TD><TD>P 内核栈</TD><TD>S; tickslock 短暂</TD></TR>
+        <TR><TD>B3</TD><TD>usertrap 判断 which_dev==2 后调用 yield</TD><TD>用户寄存器仍保存在 trapframe</TD><TD>P 内核栈</TD><TD>S; 即将取 p-&gt;lock</TD></TR>
+        <TR><TD>C1</TD><TD>yield: acquire(&amp;p-&gt;lock); p-&gt;state=RUNNABLE; sched()</TD><TD>进程状态变为可运行</TD><TD>P 内核栈</TD><TD>S; 持 p-&gt;lock</TD></TR>
+        <TR><TD>C2</TD><TD>swtch(&amp;p-&gt;context, &amp;cpu-&gt;context)</TD><TD>保存 ra/sp/s0..s11 到 p-&gt;context</TD><TD>P 内核栈 -&gt; scheduler 栈</TD><TD>S; 仍持 p-&gt;lock</TD></TR>
+        <TR><TD>C3</TD><TD>scheduler 扫描 proc[]</TD><TD>释放旧 P 锁，选择 RUNNABLE 进程</TD><TD>CPU scheduler 栈</TD><TD>S; 短暂持候选 p-&gt;lock</TD></TR>
+        <TR><TD>C4</TD><TD>可能选回 P，也可能先运行 Q</TD><TD>若选 P: P-&gt;state=RUNNING</TD><TD>scheduler 栈</TD><TD>S; 持被选进程锁</TD></TR>
+        <TR><TD>D1</TD><TD>swtch(&amp;cpu-&gt;context, &amp;P-&gt;context)</TD><TD>恢复 P 的内核上下文</TD><TD>scheduler 栈 -&gt; P 内核栈</TD><TD>S; 持 P p-&gt;lock</TD></TR>
+        <TR><TD>D2</TD><TD>usertrapret 准备返回用户态</TD><TD>stvec=uservec; SPP=0; SPIE=1; sepc=p-&gt;trapframe-&gt;epc</TD><TD>P 内核栈</TD><TD>S; 无锁</TD></TR>
+        <TR><TD>D3</TD><TD>userret 切回用户页表并恢复寄存器</TD><TD>satp=P 用户页表; sfence.vma; 从 trapframe 恢复用户寄存器</TD><TD>P 用户栈</TD><TD>S-&gt;U; 无锁</TD></TR>
+        <TR><TD>D4</TD><TD>sret 返回被中断的用户 PC</TD><TD>sepc 没有加 4，继续原用户流</TD><TD>P 用户栈</TD><TD>U; 无锁</TD></TR>
+        <TR><TD>M 态说明</TD><TD>参考内核启动时在 M 态完成委托；本图选择的是已进入用户进程后的 S 态 timer trap</TD><TD>运行期不使用 M 态栈</TD><TD>运行期 U-&gt;S-&gt;U</TD><TD>无 M 态锁</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  a1 -> a2 -> a3 -> a4 -> b1 -> b2 -> b3 -> c1 -> c2 -> c3 -> c4;
+  c4 -> d1 [label="选回 P"];
+  c4 -> other [style=dashed, color="#ca8a04", label="先选 Q"];
+  other -> c3 [style=dashed, color="#ca8a04", label="未来再选 P"];
+  d1 -> d2 -> d3 -> d4;
+
+  a2 -> note_sepc [style=dashed, arrowhead=none, color="#f97316"];
+  c2 -> note_ctx [style=dashed, arrowhead=none, color="#f97316"];
+  c4 -> note_sched [style=dashed, arrowhead=none, color="#f97316"];
+
+  anchor [shape=point, width=0, label="", style=invis];
+  d4 -> anchor [style=invis];
+  anchor -> legend [style=invis];
+}

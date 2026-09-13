@@ -1,0 +1,158 @@
+digraph exec_snapshot {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="材料二：exec 后、echo 首条用户指令前的数据结构快照",
+    labelloc=t,
+    fontsize=20,
+    pad=0.35,
+    nodesep=0.55,
+    ranksep=0.85,
+    splines=ortho,
+    outputorder=edgesfirst
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=12,
+    margin="0.12,0.08",
+    width=1.25,
+    height=0.52,
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  subgraph cluster_proc {
+    label="A. 进程表 proc[]";
+    color="#14b8a6";
+    penwidth=1.4;
+    style="rounded";
+    init [label="init\npid=1"];
+    shell [label="sh\npid=2"];
+    echo [label="echo\npid=3", fillcolor="#ecfeff"];
+  }
+
+  subgraph cluster_pt {
+    label="B. echo 页表树";
+    color="#0ea5e9";
+    penwidth=1.4;
+    style="rounded";
+    pt_root [label="L2 root\necho_pt", fillcolor="#eff6ff"];
+    l1_low [label="L1\nlow VA"];
+    l0_text [label="L0\ntext/data"];
+    l0_heap [label="L0\nheap"];
+    guard [label="guard\ninvalid", fillcolor="#fef2f2", color="#ef4444"];
+    ustack [label="user stack"];
+    l1_high [label="L1\nhigh VA"];
+    trapframe [label="TRAPFRAME\n0x3fffffe000", fillcolor="#fff7ed", color="#f97316"];
+    trampoline [label="TRAMPOLINE\n0x3ffffff000", fillcolor="#fff7ed", color="#f97316"];
+  }
+
+  subgraph cluster_file {
+    label="C. 文件表 / stdout 设备链";
+    color="#f59e0b";
+    penwidth=1.4;
+    style="rounded";
+    fd0 [label="ofile[0]\nstdin"];
+    fd1 [label="ofile[1]\nstdout", fillcolor="#fffbeb"];
+    fd2 [label="ofile[2]\nstderr"];
+    file_r [label="file\nconsole_r"];
+    file_w [label="file\nconsole_w"];
+    inode_console [label="inode\n/console"];
+    devsw_console [label="devsw\nCONSOLE"];
+    uart [label="UART0\n0x10000000"];
+  }
+
+  note_exec [
+    shape=note,
+    label="批注1：exec 只换用户地址空间，\nproc/pid/parent/ofile[] 仍沿用子进程。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.35
+  ];
+
+  note_high [
+    shape=note,
+    label="批注2：TRAPFRAME/TRAMPOLINE 在用户页表中，\n但没有 PTE_U。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.35
+  ];
+
+  note_stdout [
+    shape=note,
+    label="批注3：stdout 是 file 引用，\n设备 inode 再分派到 devsw。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.20
+  ];
+
+  legend [
+    shape=plain,
+    margin=0,
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#94a3b8">
+        <TR>
+          <TD BGCOLOR="#e2e8f0"><B>对象</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>关键字段/地址</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>权限/引用说明</B></TD>
+        </TR>
+        <TR><TD>init</TD><TD>state=SLEEPING/RUNNABLE; parent=0; pagetable=init_pt; sz=init 用户空间大小</TD><TD>fd0/fd1/fd2 指向 console</TD></TR>
+        <TR><TD>sh</TD><TD>state=SLEEPING(wait); parent=init; pagetable=sh_pt; sz=sh 程序+堆栈</TD><TD>等待 echo 退出，继承 console fds</TD></TR>
+        <TR><TD>echo</TD><TD>state=RUNNABLE 或 usertrapret 前 RUNNING; parent=sh; pagetable=echo_pt; sz≈PGROUNDUP(text+data)+2*PGSIZE</TD><TD>trapframe.epc=echo 入口; ofile[] 继承自 sh</TD></TR>
+        <TR><TD>text</TD><TD>VA 0x0..text_end</TD><TD>PTE_V | PTE_R | PTE_X | PTE_U</TD></TR>
+        <TR><TD>data/bss/heap</TD><TD>VA text_end..sz-2*PGSIZE</TD><TD>data/heap: PTE_V | PTE_R | PTE_W | PTE_U</TD></TR>
+        <TR><TD>guard</TD><TD>VA sz-2*PGSIZE..sz-PGSIZE</TD><TD>PTE_V=0，或清除 PTE_U，用户不可访问</TD></TR>
+        <TR><TD>user stack</TD><TD>VA sz-PGSIZE..sz</TD><TD>PTE_V | PTE_R | PTE_W | PTE_U; 存放 argv 和栈帧</TD></TR>
+        <TR><TD>TRAPFRAME</TD><TD>0x3fffffe000..0x3ffffff000</TD><TD>PTE_V | PTE_R | PTE_W; 无 PTE_U</TD></TR>
+        <TR><TD>TRAMPOLINE</TD><TD>0x3ffffff000..0x4000000000</TD><TD>PTE_V | PTE_R | PTE_X; 无 PTE_U</TD></TR>
+        <TR><TD>stdout 链</TD><TD>echo.ofile[1] -&gt; file(type=FD_DEVICE, major=CONSOLE) -&gt; inode(T_DEVICE) -&gt; devsw[CONSOLE]</TD><TD>devsw.write=consolewrite -&gt; uartputc/UART0</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  shell -> init [label="parent"];
+  echo -> shell [label="parent"];
+  echo -> pt_root [label="pagetable", color="#0284c7"];
+
+  pt_root -> l1_low;
+  l1_low -> l0_text;
+  l1_low -> l0_heap;
+  l1_low -> guard;
+  l1_low -> ustack;
+  pt_root -> l1_high;
+  l1_high -> trapframe;
+  l1_high -> trampoline;
+
+  echo -> fd0 [label="ofile[0]", color="#d97706"];
+  echo -> fd1 [label="ofile[1]", color="#d97706"];
+  echo -> fd2 [label="ofile[2]", color="#d97706"];
+  fd0 -> file_r;
+  fd1 -> file_w;
+  fd2 -> file_w;
+  file_r -> inode_console [label="ip"];
+  file_w -> inode_console [label="ip"];
+  inode_console -> devsw_console [label="major"];
+  devsw_console -> uart [label="write"];
+
+  echo -> note_exec [style=dashed, arrowhead=none, color="#f97316"];
+  trapframe -> note_high [style=dashed, arrowhead=none, color="#f97316"];
+  fd1 -> note_stdout [style=dashed, arrowhead=none, color="#f97316"];
+
+  anchor [shape=point, width=0, label="", style=invis];
+  uart -> anchor [style=invis];
+  anchor -> legend [style=invis];
+}

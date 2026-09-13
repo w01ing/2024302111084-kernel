@@ -1,0 +1,554 @@
+<?xml version="1.0" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="2241pt" height="813pt" viewBox="0.00 0.00 2241.40 812.90">
+<g id="graph0" class="graph" transform="translate(25.200000762939453,787.7000122070312) scale(1)" data-name="echo_hi_lifecycle">
+
+<polygon fill="white" stroke="none" points="-25.2,25.2 -25.2,-787.7 2216.2,-787.7 2216.2,25.2 -25.2,25.2" style=""/>
+<text text-anchor="middle" x="1095.5" y="-740.5" font-family="Noto Sans CJK SC" font-size="20.00" style="">材料一：echo hi 全系统控制流图（模块级）</text>
+<g id="clust1" class="cluster" data-name="cluster_input">
+
+<path fill="white" stroke="#14b8a6" stroke-width="1.4" d="M20,-8C20,-8 567,-8 567,-8 573,-8 579,-14 579,-20 579,-20 579,-82 579,-82 579,-88 573,-94 567,-94 567,-94 20,-94 20,-94 14,-94 8,-88 8,-82 8,-82 8,-20 8,-20 8,-14 14,-8 20,-8" style=""/>
+<text text-anchor="middle" x="293.5" y="-72" font-family="Noto Sans CJK SC" font-size="20.00" style="">A. 输入与阻塞</text>
+</g>
+<g id="clust2" class="cluster" data-name="cluster_irq">
+
+<path fill="white" stroke="#8b5cf6" stroke-width="1.4" d="M20,-176C20,-176 567,-176 567,-176 573,-176 579,-182 579,-188 579,-188 579,-250 579,-250 579,-256 573,-262 567,-262 567,-262 20,-262 20,-262 14,-262 8,-256 8,-250 8,-250 8,-188 8,-188 8,-182 14,-176 20,-176" style=""/>
+<text text-anchor="middle" x="293.5" y="-240" font-family="Noto Sans CJK SC" font-size="20.00" style="">B. UART 输入中断</text>
+</g>
+<g id="clust3" class="cluster" data-name="cluster_cmd">
+
+<path fill="white" stroke="#0ea5e9" stroke-width="1.4" d="M175,-426C175,-426 567,-426 567,-426 573,-426 579,-432 579,-438 579,-438 579,-579 579,-579 579,-585 573,-591 567,-591 567,-591 175,-591 175,-591 169,-591 163,-585 163,-579 163,-579 163,-438 163,-438 163,-432 169,-426 175,-426" style=""/>
+<text text-anchor="middle" x="371" y="-569" font-family="Noto Sans CJK SC" font-size="20.00" style="">C. fork / exec</text>
+</g>
+<g id="clust4" class="cluster" data-name="cluster_echo">
+
+<path fill="white" stroke="#22c55e" stroke-width="1.4" d="M485,-599C485,-599 1305.5,-599 1305.5,-599 1311.5,-599 1317.5,-605 1317.5,-611 1317.5,-611 1317.5,-673 1317.5,-673 1317.5,-679 1311.5,-685 1305.5,-685 1305.5,-685 485,-685 485,-685 479,-685 473,-679 473,-673 473,-673 473,-611 473,-611 473,-605 479,-599 485,-599" style=""/>
+<text text-anchor="middle" x="895.25" y="-663" font-family="Noto Sans CJK SC" font-size="20.00" style="">D. echo 输出与退出</text>
+</g>
+<g id="clust5" class="cluster" data-name="cluster_wait">
+
+<path fill="white" stroke="#f59e0b" stroke-width="1.4" d="M874,-264C874,-264 1111,-264 1111,-264 1117,-264 1123,-270 1123,-276 1123,-276 1123,-338 1123,-338 1123,-344 1117,-350 1111,-350 1111,-350 874,-350 874,-350 868,-350 862,-344 862,-338 862,-338 862,-276 862,-276 862,-270 868,-264 874,-264" style=""/>
+<text text-anchor="middle" x="992.5" y="-328" font-family="Noto Sans CJK SC" font-size="20.00" style="">E. 父进程回收</text>
+</g>
+<!-- a1&#45;&gt;a2 -->
+<g id="edge1" class="edge" data-name="a1-&gt;a2">
+
+<path fill="none" stroke="#334155" d="M106.25,-35C106.25,-35 161.68,-35 161.68,-35" style=""/>
+<polygon fill="#334155" stroke="#334155" points="161.68,-37.63 169.18,-35 161.68,-32.38 161.68,-37.63" style=""/>
+</g>
+<!-- a2&#45;&gt;a3 -->
+<g id="edge2" class="edge" data-name="a2-&gt;a3">
+
+<path fill="none" stroke="#334155" d="M261.25,-35C261.25,-35 316.68,-35 316.68,-35" style=""/>
+<polygon fill="#334155" stroke="#334155" points="316.68,-37.63 324.18,-35 316.68,-32.38 316.68,-37.63" style=""/>
+</g>
+<!-- a3&#45;&gt;a4 -->
+<g id="edge3" class="edge" data-name="a3-&gt;a4">
+
+<path fill="none" stroke="#334155" d="M416.25,-35C416.25,-35 471.68,-35 471.68,-35" style=""/>
+<polygon fill="#334155" stroke="#334155" points="471.68,-37.63 479.18,-35 471.68,-32.38 471.68,-37.63" style=""/>
+</g>
+<!-- a4&#45;&gt;scheduler -->
+<g id="edge4" class="edge" data-name="a4-&gt;scheduler">
+
+<path fill="none" stroke="#334155" d="M571.37,-28.83C588.53,-28.83 604,-28.83 604,-28.83 604,-28.83 604,-271.4 604,-271.4 604,-271.4 669.1,-271.4 669.1,-271.4" style=""/>
+<polygon fill="#334155" stroke="#334155" points="669.1,-274.03 676.6,-271.4 669.1,-268.78 669.1,-274.03" style=""/>
+</g>
+<!-- a4&#45;&gt;note_read -->
+<g id="edge24" class="edge" data-name="a4-&gt;note_read">
+
+<path fill="none" stroke="#f97316" stroke-dasharray="5,2" d="M571.11,-41.17C593.44,-41.17 620.98,-41.17 646.31,-41.17" style=""/>
+</g>
+<!-- b1&#45;&gt;b2 -->
+<g id="edge6" class="edge" data-name="b1-&gt;b2">
+
+<path fill="none" stroke="#7c3aed" d="M106.25,-203C106.25,-203 161.68,-203 161.68,-203" style=""/>
+<polygon fill="#7c3aed" stroke="#7c3aed" points="161.68,-205.63 169.18,-203 161.68,-200.38 161.68,-205.63" style=""/>
+</g>
+<!-- b2&#45;&gt;b3 -->
+<g id="edge7" class="edge" data-name="b2-&gt;b3">
+
+<path fill="none" stroke="#7c3aed" d="M261.25,-203C261.25,-203 316.68,-203 316.68,-203" style=""/>
+<polygon fill="#7c3aed" stroke="#7c3aed" points="316.68,-205.63 324.18,-203 316.68,-200.38 316.68,-205.63" style=""/>
+</g>
+<!-- b3&#45;&gt;b4 -->
+<g id="edge8" class="edge" data-name="b3-&gt;b4">
+
+<path fill="none" stroke="#7c3aed" d="M416.25,-203C416.25,-203 471.68,-203 471.68,-203" style=""/>
+<polygon fill="#7c3aed" stroke="#7c3aed" points="471.68,-205.63 479.18,-203 471.68,-200.38 471.68,-205.63" style=""/>
+</g>
+<!-- b4&#45;&gt;scheduler -->
+<g id="edge9" class="edge" data-name="b4-&gt;scheduler">
+
+<path fill="none" stroke="#7c3aed" d="M541,-222.63C541,-245.22 541,-279.24 541,-279.24 541,-279.24 657.14,-279.24 657.14,-279.24" style=""/>
+<polygon fill="#7c3aed" stroke="#7c3aed" points="657.14,-281.87 664.64,-279.24 657.14,-276.62 657.14,-281.87" style=""/>
+</g>
+<!-- c1&#45;&gt;c2 -->
+<g id="edge11" class="edge" data-name="c1-&gt;c2">
+
+<path fill="none" stroke="#334155" d="M261.25,-453C261.25,-453 316.68,-453 316.68,-453" style=""/>
+<polygon fill="#334155" stroke="#334155" points="316.68,-455.63 324.18,-453 316.68,-450.38 316.68,-455.63" style=""/>
+</g>
+<!-- c2&#45;&gt;c3 -->
+<g id="edge12" class="edge" data-name="c2-&gt;c3">
+
+<path fill="none" stroke="#334155" d="M416.25,-453C416.25,-453 471.68,-453 471.68,-453" style=""/>
+<polygon fill="#334155" stroke="#334155" points="471.68,-455.63 479.18,-453 471.68,-450.38 471.68,-455.63" style=""/>
+</g>
+<!-- c3&#45;&gt;scheduler -->
+<g id="edge13" class="edge" data-name="c3-&gt;scheduler">
+
+<path fill="none" stroke="#334155" d="M511,-433.5C511,-394.5 511,-310.6 511,-310.6 511,-310.6 668.84,-310.6 668.84,-310.6" style=""/>
+<polygon fill="#334155" stroke="#334155" points="668.84,-313.22 676.34,-310.6 668.84,-307.97 668.84,-313.22" style=""/>
+</g>
+<!-- c3&#45;&gt;note_exec -->
+<g id="edge25" class="edge" data-name="c3-&gt;note_exec">
+
+<path fill="none" stroke="#f97316" stroke-dasharray="5,2" d="M571.11,-453C590.3,-453 613.34,-453 635.51,-453" style=""/>
+</g>
+<!-- c4&#45;&gt;c5 -->
+<g id="edge15" class="edge" data-name="c4-&gt;c5">
+
+<path fill="none" stroke="#334155" d="M261.25,-538.47C261.25,-538.47 316.68,-538.47 316.68,-538.47" style=""/>
+<polygon fill="#334155" stroke="#334155" points="316.68,-541.09 324.18,-538.47 316.68,-535.84 316.68,-541.09" style=""/>
+</g>
+<!-- c5&#45;&gt;d1 -->
+<g id="edge16" class="edge" data-name="c5-&gt;d1">
+
+<path fill="none" stroke="#334155" d="M416.25,-547.7C462,-547.7 526,-547.7 526,-547.7 526,-547.7 526,-597.23 526,-597.23" style=""/>
+<polygon fill="#334155" stroke="#334155" points="523.38,-597.23 526,-604.73 528.63,-597.23 523.38,-597.23" style=""/>
+</g>
+<!-- d1&#45;&gt;d2 -->
+<g id="edge17" class="edge" data-name="d1-&gt;d2">
+
+<path fill="none" stroke="#334155" d="M571.11,-626C571.11,-626 666.28,-626 666.28,-626" style=""/>
+<polygon fill="#334155" stroke="#334155" points="666.28,-628.63 673.78,-626 666.28,-623.38 666.28,-628.63" style=""/>
+</g>
+<!-- d2&#45;&gt;d3 -->
+<g id="edge18" class="edge" data-name="d2-&gt;d3">
+
+<path fill="none" stroke="#334155" d="M765.61,-626C765.61,-626 860.78,-626 860.78,-626" style=""/>
+<polygon fill="#334155" stroke="#334155" points="860.78,-628.63 868.28,-626 860.78,-623.38 860.78,-628.63" style=""/>
+</g>
+<!-- d3&#45;&gt;d4 -->
+<g id="edge19" class="edge" data-name="d3-&gt;d4">
+
+<path fill="none" stroke="#334155" d="M960.25,-626C960.25,-626 1015.68,-626 1015.68,-626" style=""/>
+<polygon fill="#334155" stroke="#334155" points="1015.68,-628.63 1023.18,-626 1015.68,-623.38 1015.68,-628.63" style=""/>
+</g>
+<!-- d4&#45;&gt;d5 -->
+<g id="edge20" class="edge" data-name="d4-&gt;d5">
+
+<path fill="none" stroke="#334155" d="M1115.11,-619.53C1115.11,-619.53 1210.28,-619.53 1210.28,-619.53" style=""/>
+<polygon fill="#334155" stroke="#334155" points="1210.28,-622.16 1217.78,-619.53 1210.28,-616.91 1210.28,-622.16" style=""/>
+</g>
+<!-- d4&#45;&gt;note_uart -->
+<g id="edge26" class="edge" data-name="d4-&gt;note_uart">
+
+<path fill="none" stroke="#f97316" stroke-dasharray="5,2" d="M1115.47,-632.47C1152.96,-632.47 1200,-632.47 1200,-632.47 1200,-632.47 1200,-669.63 1200,-693.15" style=""/>
+</g>
+<!-- d5&#45;&gt;scheduler -->
+<g id="edge21" class="edge" data-name="d5-&gt;scheduler">
+
+<path fill="none" stroke="#334155" d="M1242,-606.51C1242,-538.3 1242,-314.42 1242,-314.42 1242,-314.42 761.74,-314.42 761.74,-314.42" style=""/>
+<polygon fill="#334155" stroke="#334155" points="761.74,-311.79 754.24,-314.42 761.74,-317.04 761.74,-311.79" style=""/>
+</g>
+<!-- e1&#45;&gt;e2 -->
+<g id="edge23" class="edge" data-name="e1-&gt;e2">
+
+<path fill="none" stroke="#334155" d="M960.25,-291C960.25,-291 1015.68,-291 1015.68,-291" style=""/>
+<polygon fill="#334155" stroke="#334155" points="1015.68,-293.63 1023.18,-291 1015.68,-288.38 1015.68,-293.63" style=""/>
+</g>
+<!-- e2&#45;&gt;legend_anchor -->
+<!-- scheduler&#45;&gt;b1 -->
+<g id="edge5" class="edge" data-name="scheduler-&gt;b1">
+
+<path fill="none" stroke="#7c3aed" d="M661.1,-287.08C498.99,-287.08 61,-287.08 61,-287.08 61,-287.08 61,-231.51 61,-231.51" style=""/>
+<polygon fill="#7c3aed" stroke="#7c3aed" points="63.63,-231.51 61,-224.01 58.38,-231.51 63.63,-231.51" style=""/>
+</g>
+<!-- scheduler&#45;&gt;c1 -->
+<g id="edge10" class="edge" data-name="scheduler-&gt;c1">
+
+<path fill="none" stroke="#334155" d="M661.14,-294.92C527.78,-294.92 216,-294.92 216,-294.92 216,-294.92 216,-424.29 216,-424.29" style=""/>
+<polygon fill="#334155" stroke="#334155" points="213.38,-424.29 216,-431.79 218.63,-424.29 213.38,-424.29" style=""/>
+</g>
+<!-- scheduler&#45;&gt;c4 -->
+<g id="edge14" class="edge" data-name="scheduler-&gt;c4">
+
+<path fill="none" stroke="#334155" d="M666.48,-302.76C551.72,-302.76 294,-302.76 294,-302.76 294,-302.76 294,-525.53 294,-525.53 294,-525.53 270.39,-525.53 270.39,-525.53" style=""/>
+<polygon fill="#334155" stroke="#334155" points="270.39,-522.91 262.89,-525.53 270.39,-528.16 270.39,-522.91" style=""/>
+</g>
+<!-- scheduler&#45;&gt;e1 -->
+<g id="edge22" class="edge" data-name="scheduler-&gt;e1">
+
+<path fill="none" stroke="#334155" d="M780.44,-291C780.44,-291 860.76,-291 860.76,-291" style=""/>
+<polygon fill="#334155" stroke="#334155" points="860.76,-293.63 868.26,-291 860.76,-288.38 860.76,-293.63" style=""/>
+</g>
+<!-- legend_anchor&#45;&gt;legend -->
+<!-- a1 -->
+<g id="node1" class="node" pointer-events="visible" data-name="a1">
+
+<path fill="#f8fafc" stroke="#64748b" d="M94,-54.3C94,-54.3 28,-54.3 28,-54.3 22,-54.3 16,-48.3 16,-42.3 16,-42.3 16,-27.7 16,-27.7 16,-21.7 22,-15.7 28,-15.7 28,-15.7 94,-15.7 94,-15.7 100,-15.7 106,-21.7 106,-27.7 106,-27.7 106,-42.3 106,-42.3 106,-48.3 100,-54.3 94,-54.3" style=""/>
+<text text-anchor="middle" x="61" y="-38.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">A1</text>
+<text text-anchor="middle" x="61" y="-24.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">read</text>
+</g>
+<!-- a2 -->
+<g id="node2" class="node" pointer-events="visible" data-name="a2">
+
+<path fill="#f8fafc" stroke="#64748b" d="M249,-54.3C249,-54.3 183,-54.3 183,-54.3 177,-54.3 171,-48.3 171,-42.3 171,-42.3 171,-27.7 171,-27.7 171,-21.7 177,-15.7 183,-15.7 183,-15.7 249,-15.7 249,-15.7 255,-15.7 261,-21.7 261,-27.7 261,-27.7 261,-42.3 261,-42.3 261,-48.3 255,-54.3 249,-54.3" style=""/>
+<text text-anchor="middle" x="216" y="-38.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">A2</text>
+<text text-anchor="middle" x="216" y="-24.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">usertrap</text>
+</g>
+<!-- a3 -->
+<g id="node3" class="node" pointer-events="visible" data-name="a3">
+
+<path fill="#f8fafc" stroke="#64748b" d="M404,-54.3C404,-54.3 338,-54.3 338,-54.3 332,-54.3 326,-48.3 326,-42.3 326,-42.3 326,-27.7 326,-27.7 326,-21.7 332,-15.7 338,-15.7 338,-15.7 404,-15.7 404,-15.7 410,-15.7 416,-21.7 416,-27.7 416,-27.7 416,-42.3 416,-42.3 416,-48.3 410,-54.3 404,-54.3" style=""/>
+<text text-anchor="middle" x="371" y="-38.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">A3</text>
+<text text-anchor="middle" x="371" y="-24.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">sys_read</text>
+</g>
+<!-- a4 -->
+<g id="node4" class="node" pointer-events="visible" data-name="a4">
+
+<path fill="#f8fafc" stroke="#64748b" d="M559,-54.3C559,-54.3 493,-54.3 493,-54.3 487,-54.3 481,-48.3 481,-42.3 481,-42.3 481,-27.7 481,-27.7 481,-21.7 487,-15.7 493,-15.7 493,-15.7 559,-15.7 559,-15.7 565,-15.7 571,-21.7 571,-27.7 571,-27.7 571,-42.3 571,-42.3 571,-48.3 565,-54.3 559,-54.3" style=""/>
+<text text-anchor="middle" x="526" y="-38.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">A4</text>
+<text text-anchor="middle" x="526" y="-24.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">sleep</text>
+</g>
+<!-- b1 -->
+<g id="node5" class="node" pointer-events="visible" data-name="b1">
+
+<path fill="#faf5ff" stroke="#64748b" d="M94,-222.3C94,-222.3 28,-222.3 28,-222.3 22,-222.3 16,-216.3 16,-210.3 16,-210.3 16,-195.7 16,-195.7 16,-189.7 22,-183.7 28,-183.7 28,-183.7 94,-183.7 94,-183.7 100,-183.7 106,-189.7 106,-195.7 106,-195.7 106,-210.3 106,-210.3 106,-216.3 100,-222.3 94,-222.3" style=""/>
+<text text-anchor="middle" x="61" y="-206.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">B1</text>
+<text text-anchor="middle" x="61" y="-192.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">UART IRQ</text>
+</g>
+<!-- b2 -->
+<g id="node6" class="node" pointer-events="visible" data-name="b2">
+
+<path fill="#faf5ff" stroke="#64748b" d="M249,-222.3C249,-222.3 183,-222.3 183,-222.3 177,-222.3 171,-216.3 171,-210.3 171,-210.3 171,-195.7 171,-195.7 171,-189.7 177,-183.7 183,-183.7 183,-183.7 249,-183.7 249,-183.7 255,-183.7 261,-189.7 261,-195.7 261,-195.7 261,-210.3 261,-210.3 261,-216.3 255,-222.3 249,-222.3" style=""/>
+<text text-anchor="middle" x="216" y="-206.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">B2</text>
+<text text-anchor="middle" x="216" y="-192.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">kerneltrap</text>
+</g>
+<!-- b3 -->
+<g id="node7" class="node" pointer-events="visible" data-name="b3">
+
+<path fill="#faf5ff" stroke="#64748b" d="M404,-222.3C404,-222.3 338,-222.3 338,-222.3 332,-222.3 326,-216.3 326,-210.3 326,-210.3 326,-195.7 326,-195.7 326,-189.7 332,-183.7 338,-183.7 338,-183.7 404,-183.7 404,-183.7 410,-183.7 416,-189.7 416,-195.7 416,-195.7 416,-210.3 416,-210.3 416,-216.3 410,-222.3 404,-222.3" style=""/>
+<text text-anchor="middle" x="371" y="-206.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">B3</text>
+<text text-anchor="middle" x="371" y="-192.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">consoleintr</text>
+</g>
+<!-- b4 -->
+<g id="node8" class="node" pointer-events="visible" data-name="b4">
+
+<path fill="#faf5ff" stroke="#64748b" d="M559,-222.3C559,-222.3 493,-222.3 493,-222.3 487,-222.3 481,-216.3 481,-210.3 481,-210.3 481,-195.7 481,-195.7 481,-189.7 487,-183.7 493,-183.7 493,-183.7 559,-183.7 559,-183.7 565,-183.7 571,-189.7 571,-195.7 571,-195.7 571,-210.3 571,-210.3 571,-216.3 565,-222.3 559,-222.3" style=""/>
+<text text-anchor="middle" x="526" y="-206.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">B4</text>
+<text text-anchor="middle" x="526" y="-192.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">wakeup</text>
+</g>
+<!-- c1 -->
+<g id="node9" class="node" pointer-events="visible" data-name="c1">
+
+<path fill="#f8fafc" stroke="#64748b" d="M249,-472.3C249,-472.3 183,-472.3 183,-472.3 177,-472.3 171,-466.3 171,-460.3 171,-460.3 171,-445.7 171,-445.7 171,-439.7 177,-433.7 183,-433.7 183,-433.7 249,-433.7 249,-433.7 255,-433.7 261,-439.7 261,-445.7 261,-445.7 261,-460.3 261,-460.3 261,-466.3 255,-472.3 249,-472.3" style=""/>
+<text text-anchor="middle" x="216" y="-456.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">C1</text>
+<text text-anchor="middle" x="216" y="-442.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">read 返回</text>
+</g>
+<!-- c2 -->
+<g id="node10" class="node" pointer-events="visible" data-name="c2">
+
+<path fill="#f8fafc" stroke="#64748b" d="M404,-472.3C404,-472.3 338,-472.3 338,-472.3 332,-472.3 326,-466.3 326,-460.3 326,-460.3 326,-445.7 326,-445.7 326,-439.7 332,-433.7 338,-433.7 338,-433.7 404,-433.7 404,-433.7 410,-433.7 416,-439.7 416,-445.7 416,-445.7 416,-460.3 416,-460.3 416,-466.3 410,-472.3 404,-472.3" style=""/>
+<text text-anchor="middle" x="371" y="-456.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">C2</text>
+<text text-anchor="middle" x="371" y="-442.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">parse</text>
+</g>
+<!-- c3 -->
+<g id="node11" class="node" pointer-events="visible" data-name="c3">
+
+<path fill="#f8fafc" stroke="#64748b" d="M559,-472.3C559,-472.3 493,-472.3 493,-472.3 487,-472.3 481,-466.3 481,-460.3 481,-460.3 481,-445.7 481,-445.7 481,-439.7 487,-433.7 493,-433.7 493,-433.7 559,-433.7 559,-433.7 565,-433.7 571,-439.7 571,-445.7 571,-445.7 571,-460.3 571,-460.3 571,-466.3 565,-472.3 559,-472.3" style=""/>
+<text text-anchor="middle" x="526" y="-456.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">C3</text>
+<text text-anchor="middle" x="526" y="-442.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">fork</text>
+</g>
+<!-- c4 -->
+<g id="node12" class="node" pointer-events="visible" data-name="c4">
+
+<path fill="#f8fafc" stroke="#64748b" d="M249,-551.3C249,-551.3 183,-551.3 183,-551.3 177,-551.3 171,-545.3 171,-539.3 171,-539.3 171,-524.7 171,-524.7 171,-518.7 177,-512.7 183,-512.7 183,-512.7 249,-512.7 249,-512.7 255,-512.7 261,-518.7 261,-524.7 261,-524.7 261,-539.3 261,-539.3 261,-545.3 255,-551.3 249,-551.3" style=""/>
+<text text-anchor="middle" x="216" y="-535.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">C4</text>
+<text text-anchor="middle" x="216" y="-521.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">child exec</text>
+</g>
+<!-- c5 -->
+<g id="node13" class="node" pointer-events="visible" data-name="c5">
+
+<path fill="#f8fafc" stroke="#64748b" d="M404,-551.3C404,-551.3 338,-551.3 338,-551.3 332,-551.3 326,-545.3 326,-539.3 326,-539.3 326,-524.7 326,-524.7 326,-518.7 332,-512.7 338,-512.7 338,-512.7 404,-512.7 404,-512.7 410,-512.7 416,-518.7 416,-524.7 416,-524.7 416,-539.3 416,-539.3 416,-545.3 410,-551.3 404,-551.3" style=""/>
+<text text-anchor="middle" x="371" y="-535.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">C5</text>
+<text text-anchor="middle" x="371" y="-521.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">exec done</text>
+</g>
+<!-- d1 -->
+<g id="node14" class="node" pointer-events="visible" data-name="d1">
+
+<path fill="#f0fdf4" stroke="#64748b" d="M559,-645.3C559,-645.3 493,-645.3 493,-645.3 487,-645.3 481,-639.3 481,-633.3 481,-633.3 481,-618.7 481,-618.7 481,-612.7 487,-606.7 493,-606.7 493,-606.7 559,-606.7 559,-606.7 565,-606.7 571,-612.7 571,-618.7 571,-618.7 571,-633.3 571,-633.3 571,-639.3 565,-645.3 559,-645.3" style=""/>
+<text text-anchor="middle" x="526" y="-629.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">D1</text>
+<text text-anchor="middle" x="526" y="-615.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo main</text>
+</g>
+<!-- d2 -->
+<g id="node15" class="node" pointer-events="visible" data-name="d2">
+
+<path fill="#f8fafc" stroke="#64748b" d="M753.5,-645.3C753.5,-645.3 687.5,-645.3 687.5,-645.3 681.5,-645.3 675.5,-639.3 675.5,-633.3 675.5,-633.3 675.5,-618.7 675.5,-618.7 675.5,-612.7 681.5,-606.7 687.5,-606.7 687.5,-606.7 753.5,-606.7 753.5,-606.7 759.5,-606.7 765.5,-612.7 765.5,-618.7 765.5,-618.7 765.5,-633.3 765.5,-633.3 765.5,-639.3 759.5,-645.3 753.5,-645.3" style=""/>
+<text text-anchor="middle" x="720.5" y="-629.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">D2</text>
+<text text-anchor="middle" x="720.5" y="-615.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">write</text>
+</g>
+<!-- d3 -->
+<g id="node16" class="node" pointer-events="visible" data-name="d3">
+
+<path fill="#f8fafc" stroke="#64748b" d="M948,-645.3C948,-645.3 882,-645.3 882,-645.3 876,-645.3 870,-639.3 870,-633.3 870,-633.3 870,-618.7 870,-618.7 870,-612.7 876,-606.7 882,-606.7 882,-606.7 948,-606.7 948,-606.7 954,-606.7 960,-612.7 960,-618.7 960,-618.7 960,-633.3 960,-633.3 960,-639.3 954,-645.3 948,-645.3" style=""/>
+<text text-anchor="middle" x="915" y="-629.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">D3</text>
+<text text-anchor="middle" x="915" y="-615.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">consolewrite</text>
+</g>
+<!-- d4 -->
+<g id="node17" class="node" pointer-events="visible" data-name="d4">
+
+<path fill="#f8fafc" stroke="#64748b" d="M1103,-645.3C1103,-645.3 1037,-645.3 1037,-645.3 1031,-645.3 1025,-639.3 1025,-633.3 1025,-633.3 1025,-618.7 1025,-618.7 1025,-612.7 1031,-606.7 1037,-606.7 1037,-606.7 1103,-606.7 1103,-606.7 1109,-606.7 1115,-612.7 1115,-618.7 1115,-618.7 1115,-633.3 1115,-633.3 1115,-639.3 1109,-645.3 1103,-645.3" style=""/>
+<text text-anchor="middle" x="1070" y="-629.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">D4</text>
+<text text-anchor="middle" x="1070" y="-615.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">UART 输出</text>
+</g>
+<!-- d5 -->
+<g id="node18" class="node" pointer-events="visible" data-name="d5">
+
+<path fill="#f8fafc" stroke="#64748b" d="M1297.5,-645.3C1297.5,-645.3 1231.5,-645.3 1231.5,-645.3 1225.5,-645.3 1219.5,-639.3 1219.5,-633.3 1219.5,-633.3 1219.5,-618.7 1219.5,-618.7 1219.5,-612.7 1225.5,-606.7 1231.5,-606.7 1231.5,-606.7 1297.5,-606.7 1297.5,-606.7 1303.5,-606.7 1309.5,-612.7 1309.5,-618.7 1309.5,-618.7 1309.5,-633.3 1309.5,-633.3 1309.5,-639.3 1303.5,-645.3 1297.5,-645.3" style=""/>
+<text text-anchor="middle" x="1264.5" y="-629.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">D5</text>
+<text text-anchor="middle" x="1264.5" y="-615.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">exit</text>
+</g>
+<!-- e1 -->
+<g id="node19" class="node" pointer-events="visible" data-name="e1">
+
+<path fill="#f8fafc" stroke="#64748b" d="M948,-310.3C948,-310.3 882,-310.3 882,-310.3 876,-310.3 870,-304.3 870,-298.3 870,-298.3 870,-283.7 870,-283.7 870,-277.7 876,-271.7 882,-271.7 882,-271.7 948,-271.7 948,-271.7 954,-271.7 960,-277.7 960,-283.7 960,-283.7 960,-298.3 960,-298.3 960,-304.3 954,-310.3 948,-310.3" style=""/>
+<text text-anchor="middle" x="915" y="-294.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">E1</text>
+<text text-anchor="middle" x="915" y="-280.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">wait</text>
+</g>
+<!-- e2 -->
+<g id="node20" class="node" pointer-events="visible" data-name="e2">
+
+<path fill="#f8fafc" stroke="#64748b" d="M1103,-310.3C1103,-310.3 1037,-310.3 1037,-310.3 1031,-310.3 1025,-304.3 1025,-298.3 1025,-298.3 1025,-283.7 1025,-283.7 1025,-277.7 1031,-271.7 1037,-271.7 1037,-271.7 1103,-271.7 1103,-271.7 1109,-271.7 1115,-277.7 1115,-283.7 1115,-283.7 1115,-298.3 1115,-298.3 1115,-304.3 1109,-310.3 1103,-310.3" style=""/>
+<text text-anchor="middle" x="1070" y="-294.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">E2</text>
+<text text-anchor="middle" x="1070" y="-280.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">回收 echo</text>
+</g>
+<!-- scheduler -->
+<g id="node21" class="node" pointer-events="visible" data-name="scheduler">
+
+<ellipse fill="#eff6ff" stroke="#2563eb" cx="720.5" cy="-291" rx="59.5" ry="27.37" style=""/>
+<text text-anchor="middle" x="720.5" y="-294.6" font-family="Noto Sans CJK SC" font-size="12.00" style="">scheduler</text>
+<text text-anchor="middle" x="720.5" y="-280.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">CPU 专门栈</text>
+</g>
+<!-- note_read -->
+<g id="node22" class="node" pointer-events="visible" data-name="note_read">
+
+<polygon fill="#fff7ed" stroke="#f97316" points="788.5,-53.5 646.5,-53.5 646.5,-16.5 794.5,-16.5 794.5,-47.5 788.5,-53.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="788.5,-53.5 788.5,-47.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="794.5,-47.5 788.5,-47.5" style=""/>
+<text text-anchor="middle" x="720.5" y="-38" font-family="Noto Sans CJK SC" font-size="10.00" style="">批注1：read 的阻塞点在</text>
+<text text-anchor="middle" x="720.5" y="-26" font-family="Noto Sans CJK SC" font-size="10.00" style="">consoleread/sleep。</text>
+</g>
+<!-- note_exec -->
+<g id="node23" class="node" pointer-events="visible" data-name="note_exec">
+
+<polygon fill="#fff7ed" stroke="#f97316" points="799,-471.5 636,-471.5 636,-434.5 805,-434.5 805,-465.5 799,-471.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="799,-471.5 799,-465.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="805,-465.5 799,-465.5" style=""/>
+<text text-anchor="middle" x="720.5" y="-456" font-family="Noto Sans CJK SC" font-size="10.00" style="">批注2：fork 后父子回到同一 PC；</text>
+<text text-anchor="middle" x="720.5" y="-444" font-family="Noto Sans CJK SC" font-size="10.00" style="">exec 成功后旧 sh 代码不再继续。</text>
+</g>
+<!-- note_uart -->
+<g id="node24" class="node" pointer-events="visible" data-name="note_uart">
+
+<polygon fill="#fff7ed" stroke="#f97316" points="1343,-730.5 1180,-730.5 1180,-693.5 1349,-693.5 1349,-724.5 1343,-730.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="1343,-730.5 1343,-724.5" style=""/>
+<polyline fill="none" stroke="#f97316" points="1349,-724.5 1343,-724.5" style=""/>
+<text text-anchor="middle" x="1264.5" y="-715" font-family="Noto Sans CJK SC" font-size="10.00" style="">批注3：write 和 UART 发送完成中断</text>
+<text text-anchor="middle" x="1264.5" y="-703" font-family="Noto Sans CJK SC" font-size="10.00" style="">都可能推进 uartstart。</text>
+</g>
+<!-- legend -->
+<g id="node25" class="node" pointer-events="visible" data-name="legend">
+
+<path fill="#f8fafc" stroke="none" d="M2179,-544C2179,-544 1426,-544 1426,-544 1420,-544 1414,-538 1414,-532 1414,-532 1414,-50 1414,-50 1414,-44 1420,-38 1426,-38 1426,-38 2179,-38 2179,-38 2185,-38 2191,-44 2191,-50 2191,-50 2191,-532 2191,-532 2191,-538 2185,-544 2179,-544" style=""/>
+<polygon fill="#e2e8f0" stroke="none" points="1415.5,-515 1415.5,-543 1461.5,-543 1461.5,-515 1415.5,-515" style=""/>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-515 1415.5,-543 1461.5,-543 1461.5,-515 1415.5,-515" style=""/>
+<text text-anchor="start" x="1429.5" y="-526.2" font-family="Noto Sans CJK SC" font-weight="bold" font-size="12.00" style="">编号</text>
+<polygon fill="#e2e8f0" stroke="none" points="1461.5,-515 1461.5,-543 1865.5,-543 1865.5,-515 1461.5,-515" style=""/>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-515 1461.5,-543 1865.5,-543 1865.5,-515 1461.5,-515" style=""/>
+<text text-anchor="start" x="1630.33" y="-526.2" font-family="Noto Sans CJK SC" font-weight="bold" font-size="12.00" style="">完整调用链/动作</text>
+<polygon fill="#e2e8f0" stroke="none" points="1865.5,-515 1865.5,-543 2006.5,-543 2006.5,-515 1865.5,-515" style=""/>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-515 1865.5,-543 2006.5,-543 2006.5,-515 1865.5,-515" style=""/>
+<text text-anchor="start" x="1931.5" y="-526.2" font-family="Noto Sans CJK SC" font-weight="bold" font-size="12.00" style="">栈</text>
+<polygon fill="#e2e8f0" stroke="none" points="2006.5,-515 2006.5,-543 2048.5,-543 2048.5,-515 2006.5,-515" style=""/>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-515 2006.5,-543 2048.5,-543 2048.5,-515 2006.5,-515" style=""/>
+<text text-anchor="start" x="2014" y="-526.2" font-family="Noto Sans CJK SC" font-weight="bold" font-size="12.00" style="">特权级</text>
+<polygon fill="#e2e8f0" stroke="none" points="2048.5,-515 2048.5,-543 2190.5,-543 2190.5,-515 2048.5,-515" style=""/>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-515 2048.5,-543 2190.5,-543 2190.5,-515 2048.5,-515" style=""/>
+<text text-anchor="start" x="2115" y="-526.2" font-family="Noto Sans CJK SC" font-weight="bold" font-size="12.00" style="">锁</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-487 1415.5,-515 1461.5,-515 1461.5,-487 1415.5,-487" style=""/>
+<text text-anchor="start" x="1431.17" y="-497.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">A1</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-487 1461.5,-515 1865.5,-515 1865.5,-487 1461.5,-487" style=""/>
+<text text-anchor="start" x="1606.19" y="-497.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">sh: read(0, buf, n); ecall</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-487 1865.5,-515 2006.5,-515 2006.5,-487 1865.5,-487" style=""/>
+<text text-anchor="start" x="1909.67" y="-497.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 用户栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-487 2006.5,-515 2048.5,-515 2048.5,-487 2006.5,-487" style=""/>
+<text text-anchor="start" x="2023.17" y="-497.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-487 2048.5,-515 2190.5,-515 2190.5,-487 2048.5,-487" style=""/>
+<text text-anchor="start" x="2115" y="-497.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-459 1415.5,-487 1461.5,-487 1461.5,-459 1415.5,-459" style=""/>
+<text text-anchor="start" x="1431.17" y="-469.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">A2</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-459 1461.5,-487 1865.5,-487 1865.5,-459 1461.5,-459" style=""/>
+<text text-anchor="start" x="1562.49" y="-469.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">uservec -&gt; usertrap; 保存寄存器到 trapframe</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-459 1865.5,-487 2006.5,-487 2006.5,-459 1865.5,-459" style=""/>
+<text text-anchor="start" x="1909.67" y="-469.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-459 2006.5,-487 2048.5,-487 2048.5,-459 2006.5,-459" style=""/>
+<text text-anchor="start" x="2024.16" y="-469.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-459 2048.5,-487 2190.5,-487 2190.5,-459 2048.5,-459" style=""/>
+<text text-anchor="start" x="2115" y="-469.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-431 1415.5,-459 1461.5,-459 1461.5,-431 1415.5,-431" style=""/>
+<text text-anchor="start" x="1431.17" y="-441.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">A3</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-431 1461.5,-459 1865.5,-459 1865.5,-431 1461.5,-431" style=""/>
+<text text-anchor="start" x="1554.06" y="-441.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">syscall -&gt; sys_read -&gt; fileread -&gt; consoleread</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-431 1865.5,-459 2006.5,-459 2006.5,-431 1865.5,-431" style=""/>
+<text text-anchor="start" x="1909.67" y="-441.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-431 2006.5,-459 2048.5,-459 2048.5,-431 2006.5,-431" style=""/>
+<text text-anchor="start" x="2024.16" y="-441.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-431 2048.5,-459 2190.5,-459 2190.5,-431 2048.5,-431" style=""/>
+<text text-anchor="start" x="2096.67" y="-441.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">cons.lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-403 1415.5,-431 1461.5,-431 1461.5,-403 1415.5,-403" style=""/>
+<text text-anchor="start" x="1431.17" y="-413.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">A4</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-403 1461.5,-431 1865.5,-431 1865.5,-403 1461.5,-403" style=""/>
+<text text-anchor="start" x="1553.09" y="-413.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">sleep(&amp;cons.r, &amp;cons.lock) -&gt; sched -&gt; swtch</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-403 1865.5,-431 2006.5,-431 2006.5,-403 1865.5,-403" style=""/>
+<text text-anchor="start" x="1872.3" y="-413.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 内核栈 -&gt; scheduler 栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-403 2006.5,-431 2048.5,-431 2048.5,-403 2006.5,-403" style=""/>
+<text text-anchor="start" x="2024.16" y="-413.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-403 2048.5,-431 2190.5,-431 2190.5,-403 2048.5,-403" style=""/>
+<text text-anchor="start" x="2056.96" y="-413.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">释放 cons.lock，持 p-&gt;lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-375 1415.5,-403 1461.5,-403 1461.5,-375 1415.5,-375" style=""/>
+<text text-anchor="start" x="1422.5" y="-385.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">B1-B4</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-375 1461.5,-403 1865.5,-403 1865.5,-375 1461.5,-375" style=""/>
+<text text-anchor="start" x="1495.85" y="-385.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">UART IRQ -&gt; kerneltrap/devintr -&gt; uartintr -&gt; consoleintr -&gt; wakeup</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-375 1865.5,-403 2006.5,-403 2006.5,-375 1865.5,-375" style=""/>
+<text text-anchor="start" x="1913.5" y="-385.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">当前内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-375 2006.5,-403 2048.5,-403 2048.5,-375 2006.5,-375" style=""/>
+<text text-anchor="start" x="2024.16" y="-385.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-375 2048.5,-403 2190.5,-403 2190.5,-375 2048.5,-375" style=""/>
+<text text-anchor="start" x="2055.17" y="-385.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">cons.lock，PLIC 相关锁短暂</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-347 1415.5,-375 1461.5,-375 1461.5,-347 1415.5,-347" style=""/>
+<text text-anchor="start" x="1431.5" y="-357.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">C1</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-347 1461.5,-375 1865.5,-375 1865.5,-347 1461.5,-347" style=""/>
+<text text-anchor="start" x="1563.11" y="-357.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">usertrapret -&gt; userret -&gt; sret; read 返回整行</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-347 1865.5,-375 2006.5,-375 2006.5,-347 1865.5,-347" style=""/>
+<text text-anchor="start" x="1909.67" y="-357.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 用户栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-347 2006.5,-375 2048.5,-375 2048.5,-347 2006.5,-347" style=""/>
+<text text-anchor="start" x="2023.17" y="-357.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-347 2048.5,-375 2190.5,-375 2190.5,-347 2048.5,-347" style=""/>
+<text text-anchor="start" x="2115" y="-357.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-319 1415.5,-347 1461.5,-347 1461.5,-319 1415.5,-319" style=""/>
+<text text-anchor="start" x="1431.5" y="-329.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">C2</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-319 1461.5,-347 1865.5,-347 1865.5,-319 1461.5,-319" style=""/>
+<text text-anchor="start" x="1628.67" y="-329.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">sh 解析 echo hi</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-319 1865.5,-347 2006.5,-347 2006.5,-319 1865.5,-319" style=""/>
+<text text-anchor="start" x="1909.67" y="-329.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 用户栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-319 2006.5,-347 2048.5,-347 2048.5,-319 2006.5,-319" style=""/>
+<text text-anchor="start" x="2023.17" y="-329.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-319 2048.5,-347 2190.5,-347 2190.5,-319 2048.5,-319" style=""/>
+<text text-anchor="start" x="2115" y="-329.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-291 1415.5,-319 1461.5,-319 1461.5,-291 1415.5,-291" style=""/>
+<text text-anchor="start" x="1431.5" y="-301.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">C3</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-291 1461.5,-319 1865.5,-319 1865.5,-291 1461.5,-291" style=""/>
+<text text-anchor="start" x="1537.93" y="-301.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">fork -&gt; sys_fork -&gt; fork; allocproc/uvmcopy/filedup</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-291 1865.5,-319 2006.5,-319 2006.5,-291 1865.5,-291" style=""/>
+<text text-anchor="start" x="1874.95" y="-301.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 用户栈 -&gt; shell 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-291 2006.5,-319 2048.5,-319 2048.5,-291 2006.5,-291" style=""/>
+<text text-anchor="start" x="2014.45" y="-301.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U-&gt;S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-291 2048.5,-319 2190.5,-319 2190.5,-291 2048.5,-291" style=""/>
+<text text-anchor="start" x="2069.46" y="-301.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">np-&gt;lock / wait_lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-263 1415.5,-291 1461.5,-291 1461.5,-263 1415.5,-263" style=""/>
+<text text-anchor="start" x="1431.5" y="-273.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">C4</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-263 1461.5,-291 1865.5,-291 1865.5,-263 1461.5,-263" style=""/>
+<text text-anchor="start" x="1554.98" y="-273.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">子进程 forkret 后 exec("echo", argv); sys_exec</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-263 1865.5,-291 2006.5,-291 2006.5,-263 1865.5,-263" style=""/>
+<text text-anchor="start" x="1874.29" y="-273.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">子进程用户栈 -&gt; echo 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-263 2006.5,-291 2048.5,-291 2048.5,-263 2006.5,-263" style=""/>
+<text text-anchor="start" x="2014.45" y="-273.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U-&gt;S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-263 2048.5,-291 2190.5,-291 2190.5,-263 2048.5,-263" style=""/>
+<text text-anchor="start" x="2071.51" y="-273.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">inode sleeplock 短暂</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-235 1415.5,-263 1461.5,-263 1461.5,-235 1415.5,-235" style=""/>
+<text text-anchor="start" x="1431.5" y="-245.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">C5</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-235 1461.5,-263 1865.5,-263 1865.5,-235 1461.5,-235" style=""/>
+<text text-anchor="start" x="1536.67" y="-245.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">exec 完成；trapframe.epc=echo 入口；pagetable 已替换</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-235 1865.5,-263 2006.5,-263 2006.5,-235 1865.5,-235" style=""/>
+<text text-anchor="start" x="1909.67" y="-245.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-235 2006.5,-263 2048.5,-263 2048.5,-235 2006.5,-235" style=""/>
+<text text-anchor="start" x="2024.16" y="-245.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-235 2048.5,-263 2190.5,-263 2190.5,-235 2048.5,-235" style=""/>
+<text text-anchor="start" x="2115" y="-245.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-207 1415.5,-235 1461.5,-235 1461.5,-207 1415.5,-207" style=""/>
+<text text-anchor="start" x="1431.17" y="-217.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">D1</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-207 1461.5,-235 1865.5,-235 1865.5,-207 1461.5,-207" style=""/>
+<text text-anchor="start" x="1557.61" y="-217.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">usertrapret -&gt; userret -&gt; sret; echo main 开始</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-207 1865.5,-235 2006.5,-235 2006.5,-207 1865.5,-207" style=""/>
+<text text-anchor="start" x="1909.67" y="-217.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 用户栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-207 2006.5,-235 2048.5,-235 2048.5,-207 2006.5,-207" style=""/>
+<text text-anchor="start" x="2023.17" y="-217.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-207 2048.5,-235 2190.5,-235 2190.5,-207 2048.5,-207" style=""/>
+<text text-anchor="start" x="2115" y="-217.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-179 1415.5,-207 1461.5,-207 1461.5,-179 1415.5,-179" style=""/>
+<text text-anchor="start" x="1431.17" y="-189.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">D2</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-179 1461.5,-207 1865.5,-207 1865.5,-179 1461.5,-179" style=""/>
+<text text-anchor="start" x="1560.58" y="-189.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo: write(1, "hi\n", 3); ecall -&gt; sys_write</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-179 1865.5,-207 2006.5,-207 2006.5,-179 1865.5,-179" style=""/>
+<text text-anchor="start" x="1874.97" y="-189.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 用户栈 -&gt; echo 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-179 2006.5,-207 2048.5,-207 2048.5,-179 2006.5,-179" style=""/>
+<text text-anchor="start" x="2014.45" y="-189.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U-&gt;S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-179 2048.5,-207 2190.5,-207 2190.5,-179 2048.5,-179" style=""/>
+<text text-anchor="start" x="2115" y="-189.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-151 1415.5,-179 1461.5,-179 1461.5,-151 1415.5,-151" style=""/>
+<text text-anchor="start" x="1431.17" y="-161.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">D3</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-151 1461.5,-179 1865.5,-179 1865.5,-151 1461.5,-151" style=""/>
+<text text-anchor="start" x="1534.73" y="-161.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">filewrite -&gt; consolewrite -&gt; either_copyin -&gt; uartputc</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-151 1865.5,-179 2006.5,-179 2006.5,-151 1865.5,-151" style=""/>
+<text text-anchor="start" x="1909.67" y="-161.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-151 2006.5,-179 2048.5,-179 2048.5,-151 2006.5,-151" style=""/>
+<text text-anchor="start" x="2024.16" y="-161.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-151 2048.5,-179 2190.5,-179 2190.5,-151 2048.5,-151" style=""/>
+<text text-anchor="start" x="2061.68" y="-161.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">cons.lock / uart_tx_lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-123 1415.5,-151 1461.5,-151 1461.5,-123 1415.5,-123" style=""/>
+<text text-anchor="start" x="1431.17" y="-133.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">D4</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-123 1461.5,-151 1865.5,-151 1865.5,-123 1461.5,-123" style=""/>
+<text text-anchor="start" x="1585.01" y="-133.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">uartstart/UART THR; 屏幕显示 hi</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-123 1865.5,-151 2006.5,-151 2006.5,-123 1865.5,-123" style=""/>
+<text text-anchor="start" x="1891.67" y="-133.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 内核栈或中断栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-123 2006.5,-151 2048.5,-151 2048.5,-123 2006.5,-123" style=""/>
+<text text-anchor="start" x="2024.16" y="-133.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-123 2048.5,-151 2190.5,-151 2190.5,-123 2048.5,-123" style=""/>
+<text text-anchor="start" x="2089.17" y="-133.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">uart_tx_lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-95 1415.5,-123 1461.5,-123 1461.5,-95 1415.5,-95" style=""/>
+<text text-anchor="start" x="1431.17" y="-105.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">D5</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-95 1461.5,-123 1865.5,-123 1865.5,-95 1461.5,-95" style=""/>
+<text text-anchor="start" x="1552.26" y="-105.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo: exit(0); sys_exit -&gt; exit; state=ZOMBIE</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-95 1865.5,-123 2006.5,-123 2006.5,-95 1865.5,-95" style=""/>
+<text text-anchor="start" x="1874.97" y="-105.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">echo 用户栈 -&gt; echo 内核栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-95 2006.5,-123 2048.5,-123 2048.5,-95 2006.5,-95" style=""/>
+<text text-anchor="start" x="2014.45" y="-105.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">U-&gt;S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-95 2048.5,-123 2190.5,-123 2190.5,-95 2048.5,-95" style=""/>
+<text text-anchor="start" x="2072.46" y="-105.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">wait_lock / p-&gt;lock</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-67 1415.5,-95 1461.5,-95 1461.5,-67 1415.5,-67" style=""/>
+<text text-anchor="start" x="1423.17" y="-77.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">E1-E2</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-67 1461.5,-95 1865.5,-95 1865.5,-67 1461.5,-67" style=""/>
+<text text-anchor="start" x="1558.35" y="-77.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">父进程 wait 被唤醒；回收 echo proc；返回 shell</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-67 1865.5,-95 2006.5,-95 2006.5,-67 1865.5,-67" style=""/>
+<text text-anchor="start" x="1874.95" y="-77.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">shell 内核栈 -&gt; shell 用户栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-67 2006.5,-95 2048.5,-95 2048.5,-67 2006.5,-67" style=""/>
+<text text-anchor="start" x="2014.45" y="-77.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">S-&gt;U</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-67 2048.5,-95 2190.5,-95 2190.5,-67 2048.5,-67" style=""/>
+<text text-anchor="start" x="2057.46" y="-77.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">wait_lock / p-&gt;lock 后释放</text>
+<polygon fill="none" stroke="#94a3b8" points="1415.5,-39 1415.5,-67 1461.5,-67 1461.5,-39 1415.5,-39" style=""/>
+<text text-anchor="start" x="1427.17" y="-49.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">M 态</text>
+<polygon fill="none" stroke="#94a3b8" points="1461.5,-39 1461.5,-67 1865.5,-67 1865.5,-39 1461.5,-39" style=""/>
+<text text-anchor="start" x="1468.02" y="-49.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">启动阶段 start 配置 PMP/medeleg/mideleg 后 mret 到 S 态；echo hi 运行期不回到 M 态</text>
+<polygon fill="none" stroke="#94a3b8" points="1865.5,-39 1865.5,-67 2006.5,-67 2006.5,-39 1865.5,-39" style=""/>
+<text text-anchor="start" x="1922.5" y="-49.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">启动栈</text>
+<polygon fill="none" stroke="#94a3b8" points="2006.5,-39 2006.5,-67 2048.5,-67 2048.5,-39 2006.5,-39" style=""/>
+<text text-anchor="start" x="2013.45" y="-49.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">M-&gt;S</text>
+<polygon fill="none" stroke="#94a3b8" points="2048.5,-39 2048.5,-67 2190.5,-67 2190.5,-39 2048.5,-39" style=""/>
+<text text-anchor="start" x="2115" y="-49.2" font-family="Noto Sans CJK SC" font-size="12.00" style="">无</text>
+<polygon fill="none" stroke="#94a3b8" points="1414,-38 1414,-544 2191,-544 2191,-38 1414,-38" style=""/>
+</g>
+<!-- legend_anchor -->
+</g>
+</svg>

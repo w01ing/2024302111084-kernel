@@ -1,0 +1,173 @@
+digraph echo_hi_lifecycle {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="材料一：echo hi 全系统控制流图（模块级）",
+    labelloc=t,
+    fontsize=20,
+    pad=0.35,
+    nodesep=0.55,
+    ranksep=0.9,
+    splines=ortho,
+    concentrate=false,
+    outputorder=edgesfirst
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=12,
+    margin="0.10,0.07",
+    width=1.25,
+    height=0.52,
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  subgraph cluster_input {
+    label="A. 输入与阻塞";
+    color="#14b8a6";
+    penwidth=1.4;
+    style="rounded";
+    a1 [label="A1\nread"];
+    a2 [label="A2\nusertrap"];
+    a3 [label="A3\nsys_read"];
+    a4 [label="A4\nsleep"];
+  }
+
+  subgraph cluster_irq {
+    label="B. UART 输入中断";
+    color="#8b5cf6";
+    penwidth=1.4;
+    style="rounded";
+    b1 [label="B1\nUART IRQ", fillcolor="#faf5ff"];
+    b2 [label="B2\nkerneltrap", fillcolor="#faf5ff"];
+    b3 [label="B3\nconsoleintr", fillcolor="#faf5ff"];
+    b4 [label="B4\nwakeup", fillcolor="#faf5ff"];
+  }
+
+  subgraph cluster_cmd {
+    label="C. fork / exec";
+    color="#0ea5e9";
+    penwidth=1.4;
+    style="rounded";
+    c1 [label="C1\nread 返回"];
+    c2 [label="C2\nparse"];
+    c3 [label="C3\nfork"];
+    c4 [label="C4\nchild exec"];
+    c5 [label="C5\nexec done"];
+  }
+
+  subgraph cluster_echo {
+    label="D. echo 输出与退出";
+    color="#22c55e";
+    penwidth=1.4;
+    style="rounded";
+    d1 [label="D1\necho main", fillcolor="#f0fdf4"];
+    d2 [label="D2\nwrite"];
+    d3 [label="D3\nconsolewrite"];
+    d4 [label="D4\nUART 输出"];
+    d5 [label="D5\nexit"];
+  }
+
+  subgraph cluster_wait {
+    label="E. 父进程回收";
+    color="#f59e0b";
+    penwidth=1.4;
+    style="rounded";
+    e1 [label="E1\nwait"];
+    e2 [label="E2\n回收 echo"];
+  }
+
+  scheduler [
+    label="scheduler\nCPU 专门栈",
+    shape=ellipse,
+    width=1.65,
+    fillcolor="#eff6ff",
+    color="#2563eb"
+  ];
+
+  note_read [
+    shape=note,
+    label="批注1：read 的阻塞点在\nconsoleread/sleep。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.05
+  ];
+
+  note_exec [
+    shape=note,
+    label="批注2：fork 后父子回到同一 PC；\nexec 成功后旧 sh 代码不再继续。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.35
+  ];
+
+  note_uart [
+    shape=note,
+    label="批注3：write 和 UART 发送完成中断\n都可能推进 uartstart。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10,
+    width=2.35
+  ];
+
+  legend [
+    shape=plain,
+    margin=0,
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6" COLOR="#94a3b8">
+        <TR>
+          <TD BGCOLOR="#e2e8f0"><B>编号</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>完整调用链/动作</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>栈</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>特权级</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>锁</B></TD>
+        </TR>
+        <TR><TD>A1</TD><TD>sh: read(0, buf, n); ecall</TD><TD>shell 用户栈</TD><TD>U</TD><TD>无</TD></TR>
+        <TR><TD>A2</TD><TD>uservec -&gt; usertrap; 保存寄存器到 trapframe</TD><TD>shell 内核栈</TD><TD>S</TD><TD>无</TD></TR>
+        <TR><TD>A3</TD><TD>syscall -&gt; sys_read -&gt; fileread -&gt; consoleread</TD><TD>shell 内核栈</TD><TD>S</TD><TD>cons.lock</TD></TR>
+        <TR><TD>A4</TD><TD>sleep(&amp;cons.r, &amp;cons.lock) -&gt; sched -&gt; swtch</TD><TD>shell 内核栈 -&gt; scheduler 栈</TD><TD>S</TD><TD>释放 cons.lock，持 p-&gt;lock</TD></TR>
+        <TR><TD>B1-B4</TD><TD>UART IRQ -&gt; kerneltrap/devintr -&gt; uartintr -&gt; consoleintr -&gt; wakeup</TD><TD>当前内核栈</TD><TD>S</TD><TD>cons.lock，PLIC 相关锁短暂</TD></TR>
+        <TR><TD>C1</TD><TD>usertrapret -&gt; userret -&gt; sret; read 返回整行</TD><TD>shell 用户栈</TD><TD>U</TD><TD>无</TD></TR>
+        <TR><TD>C2</TD><TD>sh 解析 echo hi</TD><TD>shell 用户栈</TD><TD>U</TD><TD>无</TD></TR>
+        <TR><TD>C3</TD><TD>fork -&gt; sys_fork -&gt; fork; allocproc/uvmcopy/filedup</TD><TD>shell 用户栈 -&gt; shell 内核栈</TD><TD>U-&gt;S</TD><TD>np-&gt;lock / wait_lock</TD></TR>
+        <TR><TD>C4</TD><TD>子进程 forkret 后 exec("echo", argv); sys_exec</TD><TD>子进程用户栈 -&gt; echo 内核栈</TD><TD>U-&gt;S</TD><TD>inode sleeplock 短暂</TD></TR>
+        <TR><TD>C5</TD><TD>exec 完成；trapframe.epc=echo 入口；pagetable 已替换</TD><TD>echo 内核栈</TD><TD>S</TD><TD>无</TD></TR>
+        <TR><TD>D1</TD><TD>usertrapret -&gt; userret -&gt; sret; echo main 开始</TD><TD>echo 用户栈</TD><TD>U</TD><TD>无</TD></TR>
+        <TR><TD>D2</TD><TD>echo: write(1, "hi\n", 3); ecall -&gt; sys_write</TD><TD>echo 用户栈 -&gt; echo 内核栈</TD><TD>U-&gt;S</TD><TD>无</TD></TR>
+        <TR><TD>D3</TD><TD>filewrite -&gt; consolewrite -&gt; either_copyin -&gt; uartputc</TD><TD>echo 内核栈</TD><TD>S</TD><TD>cons.lock / uart_tx_lock</TD></TR>
+        <TR><TD>D4</TD><TD>uartstart/UART THR; 屏幕显示 hi</TD><TD>echo 内核栈或中断栈</TD><TD>S</TD><TD>uart_tx_lock</TD></TR>
+        <TR><TD>D5</TD><TD>echo: exit(0); sys_exit -&gt; exit; state=ZOMBIE</TD><TD>echo 用户栈 -&gt; echo 内核栈</TD><TD>U-&gt;S</TD><TD>wait_lock / p-&gt;lock</TD></TR>
+        <TR><TD>E1-E2</TD><TD>父进程 wait 被唤醒；回收 echo proc；返回 shell</TD><TD>shell 内核栈 -&gt; shell 用户栈</TD><TD>S-&gt;U</TD><TD>wait_lock / p-&gt;lock 后释放</TD></TR>
+        <TR><TD>M 态</TD><TD>启动阶段 start 配置 PMP/medeleg/mideleg 后 mret 到 S 态；echo hi 运行期不回到 M 态</TD><TD>启动栈</TD><TD>M-&gt;S</TD><TD>无</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  a1 -> a2 -> a3 -> a4 -> scheduler;
+  scheduler -> b1 [color="#7c3aed"];
+  b1 -> b2 -> b3 -> b4 -> scheduler [color="#7c3aed"];
+  scheduler -> c1 -> c2 -> c3 -> scheduler;
+  scheduler -> c4 -> c5 -> d1 -> d2 -> d3 -> d4 -> d5 -> scheduler;
+  scheduler -> e1 -> e2;
+
+  a4 -> note_read [style=dashed, arrowhead=none, color="#f97316"];
+  c3 -> note_exec [style=dashed, arrowhead=none, color="#f97316"];
+  d4 -> note_uart [style=dashed, arrowhead=none, color="#f97316"];
+
+  legend_anchor [shape=point, width=0, label="", style=invis];
+  e2 -> legend_anchor [style=invis];
+  legend_anchor -> legend [style=invis];
+}
