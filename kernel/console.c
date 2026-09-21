@@ -1,14 +1,89 @@
 /*
- * lab1 初始骨架代码(自动生成): 系统启动与串口控制台输出。
- * 启动至此的前期初始化流程，需要由你在本实验中设计并实现。
- * 你需要实现: entry.S(start 前的 M 态准备可另置 start.c)、串口轮询输出、
- * 最小 printf。链接脚本 kernel.ld 带注释保留; 底层宏 riscv.h 完整保留。
- * 代码导读路线与设计引导问题详见《实验说明书(lab1)》。
+ * Polled 16550-compatible UART output.
  *
- * 两个环境注意事项(说明书 §2"环境前置条件"与附录 C, 动手前必读):
- *  1. start() 的 M→S 切换清单必须包含 PMP 配置(最简两行):
- *       w_pmpaddr0(0x3fffffffffffffull); w_pmpcfg0(0xf);
- *     否则在新版 QEMU 上 mret 进 S 态的第一条取指即触发 fault(全程无输出)。
- *  2. entry.S 里的陷阱向量标号前加 .balign 4(mtvec 要求 4 字节对齐,
- *     不满足时写入会被硬件静默丢弃)。
+ * uartputc_sync() is deliberately raw.  The student-specific output
+ * protocol is applied one layer above it by putchar().
  */
+
+#include "types.h"
+#include "riscv.h"
+#include "memlayout.h"
+#include "course_sid.h"
+
+#define UART_THR 0
+#define UART_LSR 5
+#define UART_LSR_THRE (1 << 5)
+
+static volatile uint8 *
+uart_reg(uint64 offset)
+{
+  return (volatile uint8 *)(UART0 + offset);
+}
+
+void
+uartputc_sync(char c)
+{
+  while ((*uart_reg(UART_LSR) & UART_LSR_THRE) == 0)
+    ;
+  *uart_reg(UART_THR) = (uint8)c;
+  io_fence();
+}
+
+#if LAB1_BANNER_PROTOCOL == 2
+static uint64 protocol_checksum;
+#endif
+
+void
+putchar(int c)
+{
+  char ch = (char)c;
+
+#if LAB1_BANNER_PROTOCOL == 0
+  uartputc_sync(ch);
+#elif LAB1_BANNER_PROTOCOL == 1
+  uartputc_sync(ch);
+  uartputc_sync('.');
+#elif LAB1_BANNER_PROTOCOL == 2
+  uartputc_sync(ch);
+  protocol_checksum += (uint8)ch;
+#else
+#error "unsupported LAB1_BANNER_PROTOCOL"
+#endif
+}
+
+#if LAB1_BANNER_PROTOCOL == 2
+static void
+uartputu(uint64 value)
+{
+  char digits[20];
+  int n = 0;
+
+  if (value == 0) {
+    uartputc_sync('0');
+    return;
+  }
+  while (value != 0) {
+    digits[n++] = (char)('0' + value % 10);
+    value /= 10;
+  }
+  while (n-- > 0)
+    uartputc_sync(digits[n]);
+}
+
+void
+console_protocol_finish(void)
+{
+  uartputc_sync('[');
+  uartputc_sync('c');
+  uartputc_sync('h');
+  uartputc_sync('k');
+  uartputc_sync('=');
+  uartputu(protocol_checksum);
+  uartputc_sync(']');
+}
+#else
+void
+console_protocol_finish(void)
+{
+}
+#endif
