@@ -17,6 +17,7 @@
 #include "course_sid.h"  /* lab parameters used by the course contract. */
 #include "trap.h"        /* struct trapframe and trap declarations. */
 #include "syscall.h"     /* LAB2-STAGE2：系统调用号和分发接口。 */
+#include "console.h"     /* LAB2-STAGE3：UART/PLIC 中断接口。 */
 
 /* Lab1 printf is the only output facility available at this stage. */
 extern void printf(const char *fmt, ...);
@@ -28,6 +29,8 @@ extern void printf(const char *fmt, ...);
  */
 extern char trampoline[];
 extern char userret[];
+/* LAB2-STAGE3：S 态中断返回前使用的独立汇编入口。 */
+extern void supervisor_trap(void);
 
 /* Linker marker retained for the later physical page allocator. */
 extern char kernel_end[];
@@ -54,6 +57,12 @@ __attribute__((aligned(PGSIZE)))
 static uint64 kernel_l0[512];
 __attribute__((aligned(PGSIZE)))
 static uint64 kernel_mmio_l0[512];
+/* LAB2-STAGE3：PLIC 与 UART 的低级页表不能共用同一页。 */
+__attribute__((aligned(PGSIZE)))
+static uint64 kernel_plic_l0[512];
+/* LAB2-STAGE3：PLIC 的第二个 2 MiB 区域也需要独立低级页表。 */
+__attribute__((aligned(PGSIZE)))
+static uint64 kernel_plic_hi_l0[512];
 __attribute__((aligned(PGSIZE)))
 static uint64 kernel_hi_l1[512];
 __attribute__((aligned(PGSIZE)))
@@ -92,6 +101,9 @@ struct trapframe stage1_tf;
 
 /* Map the first 2 MiB of physical RAM for the bootstrap address spaces. */
 #define STAGE1_KERNEL_MAP_SIZE (2 * 1024 * 1024UL)
+
+/* LAB2-STAGE3：PLIC 寄存器分布在 PLIC 基址后约 0x202000 字节内。 */
+#define STAGE3_PLIC_MAP_SIZE 0x204000UL
 
 /* RISC-V scause value for an environment call originating in U mode. */
 #define SCAUSE_ECALL_U 8
@@ -185,6 +197,17 @@ map_kernel_region(void)
    */
   map_page(kernel_pt, kernel_l1, kernel_mmio_l0,
            UART0, UART0, PTE_R | PTE_W);
+
+  /*
+   * LAB2-STAGE3：内核页表还必须映射 PLIC。阶段 1只访问 UART，
+   * 阶段 3会访问 priority、SENABLE、threshold 和 claim 寄存器。
+   */
+  for (pa = PLIC; pa < PLIC + STAGE3_PLIC_MAP_SIZE; pa += PGSIZE) {
+    uint64 *l0 = pa < PLIC + (2 * 1024 * 1024UL)
+                     ? kernel_plic_l0
+                     : kernel_plic_hi_l0;
+    map_page(kernel_pt, kernel_l1, l0, pa, pa, PTE_R | PTE_W);
+  }
 }
 
 /*
@@ -246,8 +269,27 @@ usertrap(void)
   long result;
 
   /*
-   * Stage 1 has no device-interrupt or page-fault handler yet. Print the
-   * diagnostic CSR values and stop if this milestone receives another cause.
+   * LAB2-STAGE3：进入 C 内核处理后，后续 S 态中断必须走
+   * supervisor_trap，而不能再次走只适用于 U 态寄存器布局的 uservec。
+   */
+  w_stvec((uint64)supervisor_trap);
+
+  /*
+   * LAB2-STAGE3：设备外部中断的 scause 最高位为 1，低位原因号为 9。
+   * 中断不修改 sepc；处理完后要从被打断的用户指令继续执行。
+   */
+  if (cause & (1UL << 63)) {
+    if ((cause & 0xfff) == 9 && devintr() != 0)
+      usertrapret();
+
+    printf("lab2 stage3 unknown interrupt scause=%lx\n", cause);
+    for (;;)
+      asm volatile("wfi");
+  }
+
+  /*
+   * 非 ecall 异常仍然是阶段 3的错误路径：打印 CSR 后停机，
+   * 避免错误地址反复触发同一异常。
    */
   if (cause != SCAUSE_ECALL_U) {
     printf("lab2 trap fault scause=%lx sepc=%lx stval=%lx\n",
@@ -272,12 +314,35 @@ usertrap(void)
   result = syscall_dispatch(&stage1_tf);
   stage1_tf.a0 = (uint64)result;
 
-  /* LAB2-STAGE2：打印分发结果，便于确认 a7、返回值和 epc 前移。 */
-  printf("lab2 stage2 syscall num=%ld ret=%ld epc=%lx\n",
+  /* LAB2-STAGE3：打印分发结果，便于确认 read/write 的 a7 和返回值。 */
+  printf("lab2 stage3 syscall num=%ld ret=%ld epc=%lx\n",
          (long)stage1_tf.a7, (long)result, stage1_tf.epc);
 
   /* Prepare CSR state and transfer control to assembly userret. */
   usertrapret();
+}
+
+/*
+ * LAB2-STAGE3：S 态内核代码被 UART 外部中断打断时的 C 处理函数。
+ *
+ * entry.S 已经保存了寄存器，硬件 sepc 指向被打断的内核指令。
+ * 这里不能调用 usertrapret()，因为返回目标仍然是 S 态；只处理
+ * 设备中断，然后由 supervisor_trap 执行 sret 回到原内核指令。
+ */
+void
+kerneltrap(void)
+{
+  uint64 cause = r_scause();
+
+  if ((cause & (1UL << 63)) &&
+      (cause & 0xfff) == 9 &&
+      devintr() != 0)
+    return;
+
+  printf("lab2 stage3 kernel trap scause=%lx sepc=%lx stval=%lx\n",
+         cause, r_sepc(), r_stval());
+  for (;;)
+    asm volatile("wfi");
 }
 
 /*

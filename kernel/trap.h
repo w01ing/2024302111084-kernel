@@ -79,6 +79,10 @@ extern char stage1_user_entry[];
 /* LAB2-STAGE2：getpid/write/exit 系统调用自测入口。 */
 extern char stage2_user_entry[];
 
+/* LAB2-STAGE3：UART read/write 自测使用的用户入口和缓冲区。 */
+extern char stage3_user_entry[];
+extern char stage3_buffer[];
+
 /* The one-page user stack used by the stage-1 hand-built address space. */
 #define STAGE1_USER_STACK 0x4000UL
 
@@ -87,6 +91,12 @@ void trap_init(void);
 
 /* LAB2-STAGE1: handle one trap after uservec switches to S-mode context. */
 void usertrap(void);
+
+/*
+ * LAB2-STAGE3：S 态正在执行内核代码时的外部中断入口。
+ * entry.S 会保存完整寄存器现场后调用 kerneltrap()。
+ */
+void kerneltrap(void);
 
 /*
  * LAB2-STAGE1: prepare CSR/trapframe state, then enter trampoline userret.

@@ -48,12 +48,78 @@ machine_trap:
 .globl supervisor_trap
 .type supervisor_trap, @function
 supervisor_trap:
-        # LAB2-STAGE1:
-        # Stage 1 only tests traps originating from user mode.  A trap taken
-        # while already in S mode has no kernelvec implementation yet, so
-        # park the hart instead of pretending that it was handled.
-        wfi
-        j       supervisor_trap
+        # LAB2-STAGE3：
+        # 这里处理 S 态内核代码运行期间到来的外部中断，例如
+        # sys_read() 在 WFI 中等待键盘输入时收到的 UART 中断。
+        #
+        # 硬件只自动保存 sepc/scause/sstatus，不会保存通用寄存器；
+        # 先在当前内核栈上保存完整现场，再调用 kerneltrap()。
+        addi    sp, sp, -256
+        sd      ra, 0(sp)
+        sd      gp, 8(sp)
+        sd      tp, 16(sp)
+        sd      t0, 24(sp)
+        sd      t1, 32(sp)
+        sd      t2, 40(sp)
+        sd      s0, 48(sp)
+        sd      s1, 56(sp)
+        sd      a0, 64(sp)
+        sd      a1, 72(sp)
+        sd      a2, 80(sp)
+        sd      a3, 88(sp)
+        sd      a4, 96(sp)
+        sd      a5, 104(sp)
+        sd      a6, 112(sp)
+        sd      a7, 120(sp)
+        sd      s2, 128(sp)
+        sd      s3, 136(sp)
+        sd      s4, 144(sp)
+        sd      s5, 152(sp)
+        sd      s6, 160(sp)
+        sd      s7, 168(sp)
+        sd      s8, 176(sp)
+        sd      s9, 184(sp)
+        sd      s10, 192(sp)
+        sd      s11, 200(sp)
+        sd      t3, 208(sp)
+        sd      t4, 216(sp)
+        sd      t5, 224(sp)
+        sd      t6, 232(sp)
+
+        call    kerneltrap
+
+        ld      ra, 0(sp)
+        ld      gp, 8(sp)
+        ld      tp, 16(sp)
+        ld      t0, 24(sp)
+        ld      t1, 32(sp)
+        ld      t2, 40(sp)
+        ld      s0, 48(sp)
+        ld      s1, 56(sp)
+        ld      a0, 64(sp)
+        ld      a1, 72(sp)
+        ld      a2, 80(sp)
+        ld      a3, 88(sp)
+        ld      a4, 96(sp)
+        ld      a5, 104(sp)
+        ld      a6, 112(sp)
+        ld      a7, 120(sp)
+        ld      s2, 128(sp)
+        ld      s3, 136(sp)
+        ld      s4, 144(sp)
+        ld      s5, 152(sp)
+        ld      s6, 160(sp)
+        ld      s7, 168(sp)
+        ld      s8, 176(sp)
+        ld      s9, 184(sp)
+        ld      s10, 192(sp)
+        ld      s11, 200(sp)
+        ld      t3, 208(sp)
+        ld      t4, 216(sp)
+        ld      t5, 224(sp)
+        ld      t6, 232(sp)
+        addi    sp, sp, 256
+        sret
 
 # LAB2-STAGE1:
 # 这是阶段 1保留的最小 ecall 往返程序，专门验证：
@@ -114,12 +180,50 @@ stage2_user_entry:
 .Lstage2_user_wait:
         j       .Lstage2_user_wait
 
+# LAB2-STAGE3：
+# 阶段 3用户态自测调用 read(0, buf, 64)，从 UART 行缓冲读到一行后，
+# 再调用 write(1, buf, n) 原样回显，最后 exit(0)。
+.section .text.stage3_user
+.align 2
+.globl stage3_user_entry
+.type stage3_user_entry, @function
+stage3_user_entry:
+        # read(0, stage3_buffer, 64)
+        li      a0, 0
+        la      a1, stage3_buffer
+        li      a2, 64
+        li      a7, 5
+        ecall
+
+        # 将 read 返回的字节数暂存到 t0，准备组成 write 参数。
+        mv      t0, a0
+        blez    t0, .Lstage3_exit
+        li      a0, 1
+        la      a1, stage3_buffer
+        mv      a2, t0
+        li      a7, 16
+        ecall
+
+.Lstage3_exit:
+        li      a0, 0
+        li      a7, 2
+        ecall
+
+.Lstage3_user_wait:
+        j       .Lstage3_user_wait
+
 .section .rodata.stage2_user
 .align 2
 stage2_message:
         .asciz  "stage2: write says hi\n"
 
 .section .bss
+.balign 16
+# LAB2-STAGE3：read/write 自测共享的用户缓冲区。
+.globl stage3_buffer
+stage3_buffer:
+        .space 64
+
 .balign 16
 .globl stack_bottom
 stack_bottom:

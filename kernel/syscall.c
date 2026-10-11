@@ -21,6 +21,8 @@
 #include "types.h"
 #include "trap.h"
 #include "syscall.h"
+/* LAB2-STAGE3：read(0, ...) 连接到控制台输入环形缓冲区。 */
+#include "console.h"
 
 /* 内核 printf 使用的逻辑输出接口。 */
 extern void printf(const char *fmt, ...);
@@ -134,6 +136,35 @@ sys_write(struct trapframe *tf)
 }
 
 /*
+ * LAB2-STAGE3：最小 read 实现。
+ *
+ * 阶段 3只开放标准输入 fd=0。用户缓冲区地址直接传给
+ * console_read()，因为当前过渡页表把低地址 RAM 直映给了用户；
+ * 后续页表阶段再把这里替换成 copyout/copyin。
+ */
+static long
+sys_read(struct trapframe *tf)
+{
+  int fd;
+  int count;
+  uint64 address;
+
+  if (argint(tf, 0, &fd) < 0 ||
+      argaddr(tf, 1, &address) < 0 ||
+      argint(tf, 2, &count) < 0)
+    return -1;
+
+  if (fd != 0 || count < 0 || count > STAGE2_WRITE_MAX)
+    return -1;
+  if (count == 0)
+    return 0;
+  if (address == 0)
+    return -1;
+
+  return console_read((char *)address, count);
+}
+
+/*
  * LAB2-STAGE2：exit 的最小语义。
  *
  * 当前还没有调度器和进程回收机制，不能像完整 xv6 那样把进程标记
@@ -148,7 +179,7 @@ sys_exit(struct trapframe *tf)
   if (argint(tf, 0, &status) < 0)
     status = -1;
 
-  printf("lab2 stage2 exit status=%d\n", status);
+  printf("lab2 stage3 exit status=%d\n", status);
   for (;;)
     asm volatile("wfi");
 }
@@ -163,6 +194,8 @@ long
 syscall_dispatch(struct trapframe *tf)
 {
   switch (tf->a7) {
+  case SYS_read:
+    return sys_read(tf);
   case SYS_getpid:
     return sys_getpid();
   case SYS_write:
