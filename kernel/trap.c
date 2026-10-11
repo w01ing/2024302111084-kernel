@@ -1,5 +1,5 @@
 /*
- * LAB2-STAGE1: C half of the user-mode trap path.
+ * LAB2-STAGE1 / LAB2-STAGE2: C half of the user-mode trap path.
  *
  * The supplied trampoline.S performs the register-level work:
  *   uservec: save user registers, switch to the kernel environment, call us
@@ -7,7 +7,8 @@
  *
  * This file supplies the trapframe data and the C decisions between those
  * two assembly entry points. Stage 1 uses one static address space and one
- * static trapframe; later process stages will make them per-process.
+ * static trapframe; stage 2 adds syscall_dispatch() between usertrap() and
+ * usertrapret(); later process stages will make the state per-process.
  */
 
 #include "types.h"       /* uint64 and freestanding integer types. */
@@ -15,7 +16,7 @@
 #include "memlayout.h"   /* UART0, KERNBASE, TRAPFRAME, TRAMPOLINE. */
 #include "course_sid.h"  /* lab parameters used by the course contract. */
 #include "trap.h"        /* struct trapframe and trap declarations. */
-#include "syscall.h"     /* SYS_sync=22 for the stage-1 self-test. */
+#include "syscall.h"     /* LAB2-STAGE2：系统调用号和分发接口。 */
 
 /* Lab1 printf is the only output facility available at this stage. */
 extern void printf(const char *fmt, ...);
@@ -233,24 +234,6 @@ user_satp(void)
   return MAKE_SATP(user_pt);
 }
 
-/*
- * LAB2-STAGE1 syscall dispatcher.
- *
- * Only SYS_sync is intentionally implemented here. The default path is
- * required by the ABI: an unknown number must return deterministic -1 rather
- * than panic or re-enter the same instruction forever.
- */
-static long
-dispatch_syscall(uint64 number)
-{
-  switch (number) {
-  case SYS_sync:
-    return 0;
-  default:
-    return -1;
-  }
-}
-
 void
 usertrap(void)
 {
@@ -282,15 +265,15 @@ usertrap(void)
   stage1_tf.epc += 4;
 
   /*
-   * uservec saved the user's a7 at offset 168. Dispatch that number and
-   * write the ABI return value into saved a0 at offset 112. userret restores
-   * that saved a0 as the user's syscall return value.
+   * uservec saved the user's a7 at offset 168. LAB2-STAGE2 的分发器
+   * 从 trapframe->a7 取号、从 a0-a2 取参数，并把返回值交给这里；
+   * 这里再写回 saved a0，userret 会把它恢复成用户态的返回值。
    */
-  result = dispatch_syscall(stage1_tf.a7);
+  result = syscall_dispatch(&stage1_tf);
   stage1_tf.a0 = (uint64)result;
 
-  /* Visible trace for the stage-1 round-trip self-test. */
-  printf("lab2 ecall num=%ld ret=%ld epc=%lx\n",
+  /* LAB2-STAGE2：打印分发结果，便于确认 a7、返回值和 epc 前移。 */
+  printf("lab2 stage2 syscall num=%ld ret=%ld epc=%lx\n",
          (long)stage1_tf.a7, (long)result, stage1_tf.epc);
 
   /* Prepare CSR state and transfer control to assembly userret. */

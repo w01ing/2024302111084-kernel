@@ -14,7 +14,7 @@
 /* LAB2-STAGE1: declares trap_init() and usertrapret(). */
 #include "trap.h"
 
-/* LAB2-STAGE1: syscall number used by the hand-built self-test. */
+/* LAB2-STAGE1/STAGE2：自测会直接填写 trapframe 的 ABI 寄存器字段。 */
 #include "syscall.h"
 
 /* 自己实现的最小 printf。 */
@@ -67,22 +67,21 @@ main(void)
    * trap_init() creates the minimal user/kernel address spaces and fills the
    * kernel-side trapframe fields.  main() then fills the user-side starting
    * fields before usertrapret() enters trampoline/userret and performs the
-   * first sret into stage1_user_entry.
+   * first sret into the selected user test entry.
    */
-  printf("lab2 stage1: enter user mode\n");
+  printf("lab2 stage2: enter user mode\n");
   trap_init();
 
   /*
-   * LAB2-STAGE1 self-test:
-   * Construct the initial trapframe here by hand.  The epc points at the
-   * tiny user-mode program in entry.S; it executes ecall, returns through
-   * usertrapret -> userret -> sret, and then performs the unknown-number
-   * ecall check.
+   * LAB2-STAGE2 self-test:
+   * 这里仍然由 main() 手动构造初始 trapframe，但用户入口已经升级为
+   * stage2_user_entry。它按真实 ABI 依次执行 getpid、write、未知调用
+   * 和 exit，专门验证“取号 -> 取参数 -> 分发 -> a0 返回”的链路。
    */
-  stage1_tf.epc = (uint64)stage1_user_entry;
+  stage1_tf.epc = (uint64)stage2_user_entry;
   stage1_tf.sp = STAGE1_USER_STACK;
   stage1_tf.a0 = 0;
-  stage1_tf.a7 = SYS_sync;
+  stage1_tf.a7 = SYS_getpid;
 
   usertrapret();
 

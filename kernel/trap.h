@@ -73,7 +73,11 @@ struct trapframe {
  * The trampoline reaches it through the fixed virtual address TRAPFRAME.
  */
 extern struct trapframe stage1_tf;
+/* LAB2-STAGE1：原阶段 1的 ecall 往返自测入口，保留用于排障回归。 */
 extern char stage1_user_entry[];
+
+/* LAB2-STAGE2：getpid/write/exit 系统调用自测入口。 */
+extern char stage2_user_entry[];
 
 /* The one-page user stack used by the stage-1 hand-built address space. */
 #define STAGE1_USER_STACK 0x4000UL

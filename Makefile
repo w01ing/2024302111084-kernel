@@ -8,8 +8,11 @@ QEMU = qemu-system-riscv64
 # LAB2-STAGE1:
 # trap.o contains the C half of the user trap path.  The supplied trampoline
 # object contains the assembly half and must be linked into the kernel image.
+# LAB2-STAGE2:
+# syscall.o contains the ABI-level system call argument parsing and dispatch.
 OBJS = kernel/entry.o kernel/start.o kernel/console.o kernel/printf.o \
-       kernel/main.o kernel/trap.o lab2/gifts/kernel/trampoline.o
+       kernel/main.o kernel/trap.o kernel/syscall.o \
+       lab2/gifts/kernel/trampoline.o
 
 kernel/kernel: $(OBJS) kernel/kernel.ld
 	$(LD) -T kernel/kernel.ld -o $@ $(OBJS)
