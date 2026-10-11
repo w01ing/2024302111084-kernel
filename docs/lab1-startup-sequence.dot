@@ -1,0 +1,57 @@
+digraph lab1_startup_sequence {
+  graph [
+    rankdir=TB,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="Lab1 启动时序图：上电到 main() 第一行",
+    labelloc=t,
+    fontsize=20,
+    pad=0.25,
+    nodesep=0.32,
+    ranksep=0.48,
+    splines=ortho
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=11,
+    margin="0.12,0.08",
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  power [label="QEMU 上电\nPC = 0x1000\n特权级 = M 态", fillcolor="#fff7ed", color="#f97316"];
+  rom [label="QEMU 启动 ROM\n-bios none：不加载外部 BIOS\n-kernel：加载 ELF 到 0x80000000", fillcolor="#fff7ed", color="#f97316"];
+  entry [label="_entry\nkernel/entry.S\nPC = 0x80000000\n特权级 = M 态", fillcolor="#eff6ff", color="#2563eb"];
+  hart [label="读取 mhartid\nhart 0 继续\n其他 hart：wfi + park", fillcolor="#eff6ff", color="#2563eb"];
+  stack [label="la sp, stack_top\n启动栈大小 = 8KB\nsp = stack_top", fillcolor="#ecfeff", color="#0891b2"];
+  mie [label="关闭 M 态中断\nmie = 0\nmstatus.MIE = 0", fillcolor="#fef2f2", color="#dc2626"];
+  mtvec [label="设置 M 态异常入口\nmtvec = machine_trap\n入口 .balign 4", fillcolor="#fef2f2", color="#dc2626"];
+  start [label="start()\nkernel/start.c\n仍为 M 态", fillcolor="#f0fdf4", color="#16a34a"];
+  delegate [label="配置委托与计数器\nmedeleg = 0xffff\nmideleg = 0xffff\nmcounteren = 0x7", fillcolor="#f0fdf4", color="#16a34a"];
+  pmp [label="配置 PMP\npmpaddr0 = 0x3fffffffffffff\npmpcfg0 = 0xf\n允许 S 态访问 RAM / UART", fillcolor="#f0fdf4", color="#16a34a"];
+  target [label="设置 S 态入口和返回点\nstvec = supervisor_trap\nmepc = main", fillcolor="#f0fdf4", color="#16a34a"];
+  mstatus [label="准备 mstatus\n清除 MPP\n设置 MPP = S\n清除 MIE", fillcolor="#f0fdf4", color="#16a34a"];
+  mret [label="mret\nM 态 -> S 态\nPC = mepc = main", fillcolor="#fefce8", color="#ca8a04"];
+  main [label="main() 第一行\nkernel/main.c\nprintf Banner\n特权级 = S 态", fillcolor="#f0fdf4", color="#16a34a"];
+
+  power -> rom -> entry -> hart -> stack -> mie -> mtvec -> start -> delegate -> pmp -> target -> mstatus -> mret -> main;
+
+  note [
+    shape=note,
+    label="关键解释：\n启动阶段先关中断，避免栈、mtvec、PMP 和 mret 目标尚未准备好时发生异常。\n\nsatp 保持 Bare 模式，不启用页表；UART 使用物理 MMIO 地址 0x10000000。",
+    fillcolor="#f8fafc",
+    color="#94a3b8",
+    fontsize=10
+  ];
+  mstatus -> note [style=dashed, arrowhead=none, color="#94a3b8"];
+}

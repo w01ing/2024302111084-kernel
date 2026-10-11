@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1900" viewBox="0 0 1200 1900">
+  <style>
+    text { font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+    .title { font-size: 30px; font-weight: 700; }
+    .box-title { font-size: 20px; font-weight: 700; }
+    .box-text { font-size: 17px; }
+    .arrow { stroke: #334155; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+    .m { fill: #eff6ff; stroke: #2563eb; }
+    .s { fill: #f0fdf4; stroke: #16a34a; }
+    .p { fill: #fff7ed; stroke: #f97316; }
+    .r { fill: #fef2f2; stroke: #dc2626; }
+    .x { fill: #fefce8; stroke: #ca8a04; }
+    .note { fill: #f8fafc; stroke: #94a3b8; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="1900" fill="white"/>
+  <text x="600" y="48" text-anchor="middle" class="title">Lab1 启动时序图：上电到 main() 第一行</text>
+
+  <g transform="translate(110,85)">
+    <rect width="980" height="105" rx="12" class="p"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">QEMU 上电</text>
+    <text x="490" y="65" text-anchor="middle" class="box-text">PC = 0x1000；特权级 = M 态</text>
+    <text x="490" y="90" text-anchor="middle" class="box-text">QEMU 启动 ROM 负责把内核加载到 0x80000000</text>
+  </g>
+  <path d="M600 190 L600 220" class="arrow"/>
+
+  <g transform="translate(110,220)">
+    <rect width="980" height="110" rx="12" class="p"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">QEMU 启动 ROM</text>
+    <text x="490" y="65" text-anchor="middle" class="box-text">-bios none：不加载外部 BIOS；-kernel：加载 ELF</text>
+    <text x="490" y="91" text-anchor="middle" class="box-text">跳转到 ELF 入口 _entry = 0x80000000</text>
+  </g>
+  <path d="M600 330 L600 360" class="arrow"/>
+
+  <g transform="translate(110,360)">
+    <rect width="980" height="120" rx="12" class="m"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">_entry，kernel/entry.S</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">特权级 = M；读取 mhartid</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">hart 0 继续；其他 hart 执行 wfi 并 park</text>
+  </g>
+  <path d="M600 480 L600 510" class="arrow"/>
+
+  <g transform="translate(110,510)">
+    <rect width="980" height="120" rx="12" class="m"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">设置启动栈</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">sp = stack_top；LAB1_STACK_KB = 8；栈大小 = 8KB</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">栈向低地址增长</text>
+  </g>
+  <path d="M600 630 L600 660" class="arrow"/>
+
+  <g transform="translate(110,660)">
+    <rect width="980" height="120" rx="12" class="r"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">关闭 M 态中断</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">mie = 0；mstatus.MIE = 0</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">避免初始化未完成时被异步中断打断</text>
+  </g>
+  <path d="M600 780 L600 810" class="arrow"/>
+
+  <g transform="translate(110,810)">
+    <rect width="980" height="120" rx="12" class="r"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">设置 M 态异常入口</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">mtvec = machine_trap；入口使用 .balign 4</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">随后跳转到 start()，仍处于 M 态</text>
+  </g>
+  <path d="M600 930 L600 960" class="arrow"/>
+
+  <g transform="translate(110,960)">
+    <rect width="980" height="145" rx="12" class="s"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">start()，kernel/start.c，特权级 = M</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">medeleg = 0xffff；mideleg = 0xffff；mcounteren = 0x7</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">pmpaddr0 = 0x3fffffffffffff；pmpcfg0 = 0xf</text>
+    <text x="490" y="121" text-anchor="middle" class="box-text">stvec = supervisor_trap；mepc = main</text>
+  </g>
+  <path d="M600 1105 L600 1135" class="arrow"/>
+
+  <g transform="translate(110,1135)">
+    <rect width="980" height="120" rx="12" class="s"/>
+    <text x="490" y="34" text-anchor="middle" class="box-title">准备 mstatus</text>
+    <text x="490" y="67" text-anchor="middle" class="box-text">清除 MPP；设置 mstatus.MPP = S；清除 MIE</text>
+    <text x="490" y="94" text-anchor="middle" class="box-text">satp 保持 Bare 模式，不启用页表</text>
+  </g>
+  <path d="M600 1255 L600 1285" class="arrow"/>
+
+  <g transform="translate(110,1285)">
+    <rect width="980" height="130" rx="12" class="x"/>
+    <text x="490" y="38" text-anchor="middle" class="box-title">mret</text>
+    <text x="490" y="72" text-anchor="middle" class="box-text">特权级：M 态 → S 态</text>
+    <text x="490" y="101" text-anchor="middle" class="box-text">PC = mepc = main</text>
+  </g>
+  <path d="M600 1415 L600 1445" class="arrow"/>
+
+  <g transform="translate(110,1445)">
+    <rect width="980" height="130" rx="12" class="s"/>
+    <text x="490" y="38" text-anchor="middle" class="box-title">main() 第一行，kernel/main.c</text>
+    <text x="490" y="72" text-anchor="middle" class="box-text">特权级 = S；开始调用 printf() 输出 Banner</text>
+    <text x="490" y="101" text-anchor="middle" class="box-text">随后经过 putchar() → uartputc_sync() 访问 UART</text>
+  </g>
+
+  <g transform="translate(110,1630)">
+    <rect width="980" height="150" rx="12" class="note"/>
+    <text x="28" y="35" class="box-title">图例 / 答辩要点</text>
+    <text x="28" y="70" class="box-text">蓝色：M 态启动；绿色：C 初始化或 S 态；红色：中断/异常准备；黄色：mret 特权级切换。</text>
+    <text x="28" y="103" class="box-text">关键 PC：0x1000 → 0x80000000 → start → main。</text>
+    <text x="28" y="136" class="box-text">关键变化：sp=stack_top，mepc=main，mstatus.MPP=S，最后执行 mret。</text>
+  </g>
+</svg>

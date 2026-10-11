@@ -48,9 +48,38 @@ machine_trap:
 .globl supervisor_trap
 .type supervisor_trap, @function
 supervisor_trap:
-        # Lab 1 has no trap recovery path yet.
+        # LAB2-STAGE1:
+        # Stage 1 only tests traps originating from user mode.  A trap taken
+        # while already in S mode has no kernelvec implementation yet, so
+        # park the hart instead of pretending that it was handled.
         wfi
         j       supervisor_trap
+
+# LAB2-STAGE1:
+# This is a tiny statically linked user-mode test program.  It is not the
+# final sh/hi/spin program; it exists only to prove the trap round trip before
+# later stages add the real process and exec machinery.
+.section .text.stage1_user
+.align 2
+.globl stage1_user_entry
+.type stage1_user_entry, @function
+stage1_user_entry:
+        # Put the known syscall number in the ABI register a7.
+        # The supplied syscall table defines SYS_sync as 22.
+        li      a7, 22
+
+        # Hardware writes the current PC to sepc and jumps to stvec.
+        ecall
+
+        # This call deliberately uses an unknown number.  usertrap() must
+        # advance sepc and return -1 instead of panicking.
+        li      a7, 99
+        ecall
+
+        # After the second sret, execution must still be in U mode.  Use a
+        # plain loop: wfi is privileged and would create a different trap.
+.Lstage1_user_wait:
+        j       .Lstage1_user_wait
 
 .section .bss
 .balign 16

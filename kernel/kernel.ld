@@ -19,6 +19,19 @@ SECTIONS
 
   .text : {          /* 代码段:entry.S 的第一段指令就在这里开头 */
     *(.text .text.*)
+
+    /*
+     * LAB2-STAGE1:
+     * Put the supplied trampoline at a page boundary.  trap_init() maps the
+     * physical page containing this code at the high virtual address
+     * TRAMPOLINE in both kernel_pt and user_pt.
+     *
+     * KEEP() prevents the linker from discarding the section because the
+     * assembly symbols are entered indirectly through stvec/userret.
+     */
+    . = ALIGN(0x1000);
+    trampoline = .;
+    KEEP(*(trampsec))
   }
 
   .rodata : {        /* 只读数据:字符串常量等 */

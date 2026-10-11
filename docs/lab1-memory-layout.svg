@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1500" viewBox="0 0 1200 1500">
+  <style>
+    text { font-family: "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; fill: #0f172a; }
+    .title { font-size: 30px; font-weight: 700; }
+    .addr { font-size: 18px; font-family: "DejaVu Sans Mono", monospace; }
+    .head { font-size: 19px; font-weight: 700; }
+    .body { font-size: 17px; }
+    .small { font-size: 15px; }
+    .line { stroke: #64748b; stroke-width: 2; }
+  </style>
+  <rect width="1200" height="1500" fill="white"/>
+  <text x="600" y="48" text-anchor="middle" class="title">Lab1 内核物理内存空间布局图</text>
+  <text x="600" y="78" text-anchor="middle" class="small">地址从低到高向下增长；QEMU UART 是物理 MMIO，不属于内核 ELF 段</text>
+
+  <g transform="translate(70,115)">
+    <rect width="1060" height="58" fill="#e2e8f0" class="line"/>
+    <text x="25" y="37" class="head">地址 / 范围</text>
+    <text x="350" y="37" class="head">区域</text>
+    <text x="640" y="37" class="head">作用</text>
+  </g>
+
+  <g transform="translate(70,173)">
+    <rect width="1060" height="75" fill="#fff7ed" class="line"/>
+    <text x="25" y="31" class="addr">0x00001000</text>
+    <text x="350" y="31" class="head">QEMU boot ROM</text>
+    <text x="640" y="31" class="body">上电后 PC 从这里开始执行</text>
+    <text x="640" y="56" class="small">-bios none 仍保留 QEMU 自带启动 ROM</text>
+  </g>
+  <g transform="translate(70,248)">
+    <rect width="1060" height="65" fill="#f8fafc" class="line"/>
+    <text x="25" y="40" class="addr">0x02000000</text>
+    <text x="350" y="40" class="head">CLINT</text>
+    <text x="640" y="40" class="body">核心本地中断控制器</text>
+  </g>
+  <g transform="translate(70,313)">
+    <rect width="1060" height="65" fill="#f8fafc" class="line"/>
+    <text x="25" y="40" class="addr">0x0c000000</text>
+    <text x="350" y="40" class="head">PLIC</text>
+    <text x="640" y="40" class="body">平台级中断控制器</text>
+  </g>
+  <g transform="translate(70,378)">
+    <rect width="1060" height="85" fill="#fef2f2" class="line"/>
+    <text x="25" y="31" class="addr">0x10000000</text>
+    <text x="350" y="31" class="head">UART0 MMIO</text>
+    <text x="640" y="31" class="body">THR = UART0 + 0，LSR = UART0 + 5</text>
+    <text x="640" y="58" class="small">console.c 轮询 LSR.bit5 后向 THR 写字符</text>
+  </g>
+  <g transform="translate(70,463)">
+    <rect width="1060" height="65" fill="#f8fafc" class="line"/>
+    <text x="25" y="40" class="addr">0x10001000</text>
+    <text x="350" y="40" class="head">VirtIO MMIO</text>
+    <text x="640" y="40" class="body">后续实验使用的设备接口</text>
+  </g>
+  <g transform="translate(70,528)">
+    <rect width="1060" height="90" fill="#dbeafe" class="line"/>
+    <text x="25" y="31" class="addr">0x80000000</text>
+    <text x="350" y="31" class="head">.text / _entry</text>
+    <text x="640" y="31" class="body">内核 ELF 起始；kernel.ld 的 BASE_ADDRESS</text>
+    <text x="640" y="58" class="small">entry.S、start.c、console.c、printf.c、main.c 的代码</text>
+  </g>
+  <g transform="translate(70,618)">
+    <rect width="1060" height="75" fill="#ede9fe" class="line"/>
+    <text x="25" y="44" class="addr">.text 之后</text>
+    <text x="350" y="44" class="head">.rodata</text>
+    <text x="640" y="44" class="body">字符串常量和其他只读数据</text>
+  </g>
+  <g transform="translate(70,693)">
+    <rect width="1060" height="75" fill="#dcfce7" class="line"/>
+    <text x="25" y="44" class="addr">.rodata 之后</text>
+    <text x="350" y="44" class="head">.data</text>
+    <text x="640" y="44" class="body">已初始化的全局或静态数据</text>
+  </g>
+  <g transform="translate(70,768)">
+    <rect width="1060" height="90" fill="#fef9c3" class="line"/>
+    <text x="25" y="31" class="addr">.data 之后</text>
+    <text x="350" y="31" class="head">.bss</text>
+    <text x="640" y="31" class="body">未初始化数据和启动栈</text>
+    <text x="640" y="58" class="small">uart_bytes_since_throttle 等零初始化对象位于这里</text>
+  </g>
+  <g transform="translate(70,858)">
+    <rect width="1060" height="65" fill="#cffafe" class="line"/>
+    <text x="25" y="40" class="addr">0x80000580</text>
+    <text x="350" y="40" class="head">stack_bottom</text>
+    <text x="640" y="40" class="body">启动栈底</text>
+  </g>
+  <g transform="translate(70,923)">
+    <rect width="1060" height="100" fill="#a5f3fc" class="line"/>
+    <text x="25" y="34" class="addr">0x80000580 ..</text>
+    <text x="25" y="65" class="addr">0x80002580</text>
+    <text x="350" y="34" class="head">启动栈，8KB</text>
+    <text x="640" y="34" class="body">entry.S 用 la sp, stack_top 设置初始 sp</text>
+    <text x="640" y="64" class="body">RISC-V 栈向低地址增长</text>
+  </g>
+  <g transform="translate(70,1023)">
+    <rect width="1060" height="65" fill="#cffafe" class="line"/>
+    <text x="25" y="40" class="addr">0x80002580</text>
+    <text x="350" y="40" class="head">stack_top</text>
+    <text x="640" y="40" class="body">启动时 sp 的初始值</text>
+  </g>
+  <g transform="translate(70,1088)">
+    <rect width="1060" height="65" fill="#e2e8f0" class="line"/>
+    <text x="25" y="40" class="addr">0x80002588</text>
+    <text x="350" y="40" class="head">kernel_end</text>
+    <text x="640" y="40" class="body">内核镜像结束；后续实验可作为分配起点</text>
+  </g>
+  <g transform="translate(70,1185)">
+    <rect width="1060" height="110" fill="#f1f5f9" class="line"/>
+    <text x="25" y="34" class="addr">0x80000000 ..</text>
+    <text x="25" y="66" class="addr">0x88000000</text>
+    <text x="350" y="34" class="head">QEMU RAM</text>
+    <text x="640" y="34" class="body">KERNBASE = 0x80000000</text>
+    <text x="640" y="65" class="body">PHYSTOP = 0x88000000，共 128 MiB</text>
+  </g>
+  <g transform="translate(70,1330)">
+    <rect width="1060" height="90" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <text x="25" y="34" class="head">布局关系</text>
+    <text x="25" y="66" class="body">0x80000000 → .text → .rodata → .data → .bss → stack_bottom ... stack_top → kernel_end</text>
+  </g>
+</svg>

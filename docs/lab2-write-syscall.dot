@@ -1,0 +1,101 @@
+digraph lab2_write_syscall {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="Lab2 设计图①：一次 write 系统调用的完整往返",
+    labelloc=t,
+    fontsize=20,
+    pad=0.35,
+    nodesep=0.55,
+    ranksep=0.8,
+    splines=ortho,
+    outputorder=edgesfirst
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=11,
+    margin="0.12,0.08",
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  subgraph cluster_user_in {
+    label="A. U 态：准备并陷入";
+    color="#14b8a6";
+    penwidth=1.4;
+    style="rounded";
+    u1 [label="用户 C 代码\nwrite(1, buf, n)", fillcolor="#ecfeff"];
+    u2 [label="用户桩\n a0=fd=1\n a1=buf\n a2=n\n a7=16"];
+    u3 [label="ecall\nPC = E\n用户栈\nsatp = user"];
+    u4 [label="硬件入陷\nsepc=E\nscause=8\nSPP=0"];
+  }
+
+  subgraph cluster_uservec {
+    label="B. S 态：trampoline/uservec";
+    color="#8b5cf6";
+    penwidth=1.4;
+    style="rounded";
+    v1 [label="stvec = uservec\n仍在 trampoline"];
+    v2 [label="sscratch <-> a0\n保存用户 a0"];
+    v3 [label="保存用户寄存器\nTRAPFRAME+40..280"];
+    v4 [label="取 kernel_sp\nkernel_satp\nkernel_trap"];
+    v5 [label="sp = kernel_sp\nt satp = kernel_satp\n跳 usertrap", fillcolor="#faf5ff"];
+  }
+
+  subgraph cluster_kernel {
+    label="C. S 态：内核处理";
+    color="#0ea5e9";
+    penwidth=1.4;
+    style="rounded";
+    k1 [label="usertrap\nstvec = kernelvec\ntrapframe.epc = sepc"];
+    k2 [label="ecall 分支\nepc += 4"];
+    k3 [label="syscall\nnum = trapframe.a7\nargs = a0..a2"];
+    k4 [label="sys_write\nfd/buf/n 校验\ncopyin 用户字节"];
+    k5 [label="consolewrite\nuartputc / uartstart\n返回 count 或 -1"];
+  }
+
+  subgraph cluster_return {
+    label="D. S -> U：恢复";
+    color="#22c55e";
+    penwidth=1.4;
+    style="rounded";
+    r1 [label="trapframe.a0 = ret\nsepc 保持 E+4"];
+    r2 [label="usertrapret\nstvec=uservec\nSPP=0, SPIE=1"];
+    r3 [label="userret\nsatp=user\nsfence.vma"];
+    r4 [label="恢复寄存器\n最后恢复 a0=ret"];
+    r5 [label="sret\nU 态 PC=E+4\n用户栈继续"];
+    r6 [label="用户桩 ret\nC 代码拿到返回值", fillcolor="#f0fdf4"];
+  }
+
+  note_regs [
+    shape=note,
+    label="寄存器分工：\na0-a2 = syscall 参数/返回值\na7 = syscall 编号\nsepc = 被陷入 PC\nscause = 8 表示 U 态 ecall\nsscratch = 暂存用户 a0\nsatp/sp 在 uservec/userret 处切换",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10
+  ];
+
+  note_stack [
+    shape=note,
+    label="栈分工：\n用户代码/桩：用户栈\nuservec：先依赖 trampoline 映射，随后切进程内核栈\nusertrap/sys_write/usertrapret：进程内核栈\nuserret/sret：恢复用户栈",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10
+  ];
+
+  u1 -> u2 -> u3 -> u4 -> v1 -> v2 -> v3 -> v4 -> v5;
+  v5 -> k1 -> k2 -> k3 -> k4 -> k5 -> r1 -> r2 -> r3 -> r4 -> r5 -> r6;
+  k3 -> note_regs [style=dashed, arrowhead=none, color="#f97316"];
+  v3 -> note_stack [style=dashed, arrowhead=none, color="#f97316"];
+}

@@ -1,0 +1,121 @@
+digraph lab2_uart_input_interrupt {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="Lab2 设计图②：一次键盘/UART 输入中断的完整路径",
+    labelloc=t,
+    fontsize=20,
+    pad=0.35,
+    nodesep=0.55,
+    ranksep=0.8,
+    splines=ortho,
+    outputorder=edgesfirst
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    fontname="Noto Sans CJK SC",
+    fontsize=11,
+    margin="0.12,0.08",
+    color="#64748b",
+    fillcolor="#f8fafc"
+  ];
+
+  edge [
+    fontname="Noto Sans CJK SC",
+    fontsize=10,
+    color="#334155",
+    arrowsize=0.75
+  ];
+
+  subgraph cluster_sleep {
+    label="A. Shell 先进入睡眠";
+    color="#14b8a6";
+    penwidth=1.4;
+    style="rounded";
+    a1 [label="Shell U 态\nread(0, buf, 1)\necall"];
+    a2 [label="sys_read -> consoleread\n持有 cons.lock"];
+    a3 [label="r == w 且未有完整行\nsleep(&cons.r, &cons.lock)"];
+    a4 [label="Shell = SLEEPING\n释放 cons.lock\n切 scheduler", fillcolor="#ecfeff"];
+  }
+
+  subgraph cluster_irq {
+    label="B. 硬件产生并进入 S 态";
+    color="#8b5cf6";
+    penwidth=1.4;
+    style="rounded";
+    b1 [label="终端输入到 UART RX\nRHR 收到字符"];
+    b2 [label="UART IER bit0\n向 PLIC 提交 IRQ 10"];
+    b3 [label="硬件入陷\nscause=0x800...0009\nsepc=被打断的 S PC\nSPP=1"];
+    b4 [label="stvec = kernelvec\n不经过 uservec\n硬件不切栈/页表", fillcolor="#faf5ff"];
+  }
+
+  subgraph cluster_dispatch {
+    label="C. 内核中断分发";
+    color="#0ea5e9";
+    penwidth=1.4;
+    style="rounded";
+    c1 [label="kernelvec\n保存 ra/sp/s0..s11\n当前内核栈或 scheduler 栈"];
+    c2 [label="kerneltrap\n保存 sepc/sstatus\n调用 devintr"];
+    c3 [label="PLIC claim\n得到 IRQ=10"];
+    c4 [label="uartintr\n读 UART RHR\n取出字符 c"];
+  }
+
+  subgraph cluster_console {
+    label="D. 放入行缓冲并唤醒";
+    color="#f59e0b";
+    penwidth=1.4;
+    style="rounded";
+    d1 [label="acquire cons.lock\n检查 r/e 边界"];
+    d2 [label="普通字符\nbuf[e % 32]=c\ne++\n回显原字符"];
+    d3 [label="若 c='\\n'\n或 e-r == 32\nw=e", fillcolor="#fff7ed"];
+    d4 [label="wakeup(&cons.r)\nShell: SLEEPING\n-> RUNNABLE"];
+    d5 [label="release cons.lock\nPLIC complete 10\n恢复 kernelvec 现场", fillcolor="#fff7ed"];
+  }
+
+  scheduler [
+    label="scheduler\nCPU scheduler 栈\n重新选择 Shell",
+    shape=ellipse,
+    width=1.7,
+    fillcolor="#eff6ff",
+    color="#2563eb"
+  ];
+
+  resume [
+    label="Shell 回到 sleep 后\n重新检查 r != w\n复制 [r,w) 到用户 buf\n随后 usertrapret -> sret",
+    fillcolor="#f0fdf4",
+    color="#16a34a"
+  ];
+
+  drop [
+    label="缓冲已满且未消费\n按 LAB2 行缓冲约定丢弃后续字节\n不得越界或错误递增索引",
+    shape=note,
+    fillcolor="#fef2f2",
+    color="#dc2626",
+    fontsize=10
+  ];
+
+  note_sleep [
+    shape=note,
+    label="原子性重点：\n检查 r==w 与设置 SLEEPING\n必须在同一套锁协议中完成。\n中断先拿 cons.lock，避免\n字符到达后 Shell 永久睡眠。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10
+  ];
+
+  note_stack [
+    shape=note,
+    label="Shell 睡着时没有 Shell 用户栈可用。\nUART IRQ 使用当时正在运行的\n内核栈，可能属于其他进程，\n也可能是 scheduler 栈。",
+    fillcolor="#fff7ed",
+    color="#f97316",
+    fontsize=10
+  ];
+
+  a1 -> a2 -> a3 -> a4 -> scheduler;
+  b1 -> b2 -> b3 -> b4 -> c1 -> c2 -> c3 -> c4 -> d1 -> d2 -> d3 -> d4 -> d5 -> scheduler -> resume;
+  d1 -> drop [label="e-r >= 32", style=dashed, color="#dc2626"];
+  a3 -> note_sleep [style=dashed, arrowhead=none, color="#f97316"];
+  b4 -> note_stack [style=dashed, arrowhead=none, color="#f97316"];
+}

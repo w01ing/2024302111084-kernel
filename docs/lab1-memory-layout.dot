@@ -1,0 +1,104 @@
+digraph lab1_memory_layout {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Noto Sans CJK SC",
+    label="Lab1 内核物理内存空间布局图",
+    labelloc=t,
+    fontsize=20,
+    pad=0.25,
+    nodesep=0.28,
+    ranksep=0.8,
+    splines=ortho
+  ];
+
+  node [
+    shape=plain,
+    fontname="Noto Sans CJK SC",
+    fontsize=11
+  ];
+
+  edge [style=invis];
+
+  memory [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="8" COLOR="#64748b">
+        <TR>
+          <TD BGCOLOR="#e2e8f0"><B>地址范围 / 位置</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>内容</B></TD>
+          <TD BGCOLOR="#e2e8f0"><B>作用</B></TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x00001000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#fff7ed">QEMU boot ROM</TD>
+          <TD ALIGN="LEFT">上电后 PC 从这里开始</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x02000000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#f8fafc">CLINT</TD>
+          <TD ALIGN="LEFT">核间/本地中断控制器</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x0c000000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#f8fafc">PLIC</TD>
+          <TD ALIGN="LEFT">平台级中断控制器</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x10000000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#fef2f2"><B>UART0 MMIO</B></TD>
+          <TD ALIGN="LEFT">THR = +0；LSR = +5；轮询输出</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x10001000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#f8fafc">VirtIO MMIO</TD>
+          <TD ALIGN="LEFT">后续实验的设备接口</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80000000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#dbeafe"><B>.text / _entry</B></TD>
+          <TD ALIGN="LEFT">内核代码开始；链接脚本 BASE_ADDRESS</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">.text 之后</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#ede9fe">.rodata</TD>
+          <TD ALIGN="LEFT">字符串常量、只读数据</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">.rodata 之后</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#dcfce7">.data</TD>
+          <TD ALIGN="LEFT">已初始化全局数据</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">.data 之后</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#fef9c3">.bss</TD>
+          <TD ALIGN="LEFT">未初始化数据和启动栈</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80000580</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#cffafe">stack_bottom</TD>
+          <TD ALIGN="LEFT">启动栈底；当前编译产物地址</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80000580 .. 0x80002580</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#a5f3fc"><B>启动栈 8KB</B></TD>
+          <TD ALIGN="LEFT">栈向低地址增长；sp 初值为 stack_top</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80002580</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#cffafe">stack_top</TD>
+          <TD ALIGN="LEFT">entry.S 设置 sp 的位置</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80002588</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#e2e8f0"><B>kernel_end</B></TD>
+          <TD ALIGN="LEFT">内核镜像结束；后续实验可作为分配起点</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">0x80000000 .. 0x88000000</TD>
+          <TD ALIGN="LEFT" BGCOLOR="#f1f5f9">QEMU RAM / PHYSTOP</TD>
+          <TD ALIGN="LEFT">128 MiB 物理内存范围</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+}
