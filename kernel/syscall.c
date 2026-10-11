@@ -10,9 +10,9 @@
  *   返回值   -> trapframe.a0
  *
  * 这里暂时没有正式的进程表、文件表和用户地址空间隔离。因此：
- *   1. getpid() 返回固定的自测进程号 1；
+ *   1. getpid() 使用阶段四简化运行时维护的父/子编号；
  *   2. write() 允许 stdout/stderr，并直接读取当前用户映射中的地址；
- *   3. exit() 结束当前阶段 2 自测并让内核停在安全循环中。
+ *   3. exit() 在阶段四子程序结束时恢复被 fork 暂存的 Shell。
  *
  * 直接读取用户指针是实验接口明确允许的过渡做法，完整的地址检查
  * 和 copyin 会在后续虚拟内存阶段补齐。
@@ -21,17 +21,9 @@
 #include "types.h"
 #include "trap.h"
 #include "syscall.h"
+#include "exec.h"      /* LAB2-STAGE4：sh/hi/spin 的装载和伪进程状态。 */
 /* LAB2-STAGE3：read(0, ...) 连接到控制台输入环形缓冲区。 */
 #include "console.h"
-
-/* 内核 printf 使用的逻辑输出接口。 */
-extern void printf(const char *fmt, ...);
-
-/* 原始 UART 输出接口，write() 通过 putchar 保持当前输出协议。 */
-extern void putchar(int c);
-
-/* LAB2-STAGE2：阶段 2 自测使用的固定进程号。 */
-#define STAGE2_TEST_PID 1
 
 /* LAB2-STAGE2：write 允许的标准输出文件描述符。 */
 #define STDOUT_FD 1
@@ -86,11 +78,11 @@ argaddr(struct trapframe *tf, int index, uint64 *out)
   return 0;
 }
 
-/* LAB2-STAGE2：最小 getpid 实现，返回当前自测进程的固定编号。 */
+/* LAB2-STAGE4：getpid() 返回当前 Shell/子程序的简化进程编号。 */
 static long
 sys_getpid(void)
 {
-  return STAGE2_TEST_PID;
+  return stage4_getpid();
 }
 
 /*
@@ -102,8 +94,8 @@ sys_getpid(void)
  *   a2 = 字节数
  *
  * 返回成功写出的字节数；文件描述符、地址或长度非法时返回 -1。
- * 当前阶段的用户页表把内核镜像的低地址直映区域临时标成 U，
- * 所以这里可以直接解引用用户地址。
+ * 当前阶段的用户页表把用户镜像映射在低地址，因此这里可以直接
+ * 解引用用户地址；阶段四的输出改走原始 UART，不再追加 Lab1 句点。
  */
 static long
 sys_write(struct trapframe *tf)
@@ -112,7 +104,6 @@ sys_write(struct trapframe *tf)
   int count;
   uint64 address;
   const char *buffer;
-  int i;
 
   if (argint(tf, 0, &fd) < 0 ||
       argaddr(tf, 1, &address) < 0 ||
@@ -129,10 +120,7 @@ sys_write(struct trapframe *tf)
     return -1;
 
   buffer = (const char *)address;
-  for (i = 0; i < count; i++)
-    putchar((unsigned char)buffer[i]);
-
-  return count;
+  return console_write_raw(buffer, count);
 }
 
 /*
@@ -165,11 +153,11 @@ sys_read(struct trapframe *tf)
 }
 
 /*
- * LAB2-STAGE2：exit 的最小语义。
+ * LAB2-STAGE4：exit 的最小语义。
  *
- * 当前还没有调度器和进程回收机制，不能像完整 xv6 那样把进程标记
- * 为 ZOMBIE 后切换到调度器。因此先打印退出状态，再停在内核安全
- * 循环中。重要的是：exit 不会返回用户态，符合 noreturn 语义。
+ * 子程序退出时由 stage4_exit() 恢复 fork 保存的 Shell trapframe；
+ * 如果没有父现场可恢复，则停在内核安全循环中。重要的是 exit
+ * 不会返回用户态，符合用户桩的 noreturn 语义。
  */
 __attribute__((noreturn)) static void
 sys_exit(struct trapframe *tf)
@@ -179,9 +167,7 @@ sys_exit(struct trapframe *tf)
   if (argint(tf, 0, &status) < 0)
     status = -1;
 
-  printf("lab2 stage3 exit status=%d\n", status);
-  for (;;)
-    asm volatile("wfi");
+  stage4_exit(tf, status);
 }
 
 /*
@@ -196,6 +182,13 @@ syscall_dispatch(struct trapframe *tf)
   switch (tf->a7) {
   case SYS_read:
     return sys_read(tf);
+  /* LAB2-STAGE4：Shell 通过这三个调用启动和等待用户程序。 */
+  case SYS_fork:
+    return stage4_fork(tf);
+  case SYS_wait:
+    return stage4_wait(tf);
+  case SYS_exec:
+    return stage4_exec(tf);
   case SYS_getpid:
     return sys_getpid();
   case SYS_write:

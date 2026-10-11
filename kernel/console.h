@@ -14,6 +14,8 @@
 void uart_init(void);
 void plic_init(void);
 void console_puts_raw(const char *s);
+/* LAB2-STAGE4：用户 write() 使用的原始字节输出，不附加 Lab1 句点。 */
+int console_write_raw(const char *s, int count);
 int devintr(void);
 int console_read(char *dst, int count);
 

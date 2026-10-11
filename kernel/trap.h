@@ -89,6 +89,17 @@ extern char stage3_buffer[];
 /* LAB2-STAGE1: build the first user address space and trap entry. */
 void trap_init(void);
 
+/*
+ * LAB2-STAGE4：把当前内嵌用户程序和它的用户栈映射到低地址空间。
+ *
+ * image_pa/image_size 指向内核中保存的平铺程序镜像；
+ * stack_pa/stack_va 指向一页已经分配好的用户栈后备存储。
+ * 函数会先清空旧的低地址叶子映射，因此 exec 覆盖程序后不会继续
+ * 看见上一个用户程序的旧映射。
+ */
+int trap_map_user_image(uint64 image_pa, uint64 image_size,
+                        uint64 stack_pa, uint64 stack_va);
+
 /* LAB2-STAGE1: handle one trap after uservec switches to S-mode context. */
 void usertrap(void);
 

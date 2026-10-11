@@ -129,6 +129,25 @@ console_puts_raw(const char *s)
 }
 
 /*
+ * LAB2-STAGE4：把用户 write(fd, buf, n) 的 n 个字节原样送到 UART。
+ *
+ * Lab1 的 putchar() 会根据课程协议附加句点；Shell 的命令行和用户
+ * 程序输出必须保持普通终端语义，所以阶段四单独走这条原始路径。
+ */
+int
+console_write_raw(const char *s, int count)
+{
+  int i;
+
+  if (s == 0 || count < 0)
+    return -1;
+
+  for (i = 0; i < count; i++)
+    uart_echo_raw(s[i]);
+  return count;
+}
+
+/*
  * LAB2-STAGE3：初始化 16550 UART 的接收路径。
  *
  * 先关闭 UART 中断，再设置 8N1、波特率分频器和 FIFO，最后只打开

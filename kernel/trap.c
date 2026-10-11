@@ -81,6 +81,18 @@ __attribute__((aligned(PGSIZE)))
 static uint64 user_low_l1[512];
 __attribute__((aligned(PGSIZE)))
 static uint64 user_low_l0[512];
+/*
+ * LAB2-STAGE4：内核低地址用户映射专用的一组页表页。
+ *
+ * kernel_l1 同时被 KERNBASE 直映区使用；它不能再拿来解释 VA=0，
+ * 因为同一个 level-1 下标会与 KERNBASE 的叶子发生冲突。阶段四
+ * 因此为 kernel_pt 的根索引 0准备独立的 level-1 页，并把 UART/PLIC
+ * 的 MMIO 叶子链接复制过去。
+ */
+__attribute__((aligned(PGSIZE)))
+static uint64 kernel_user_l1[512];
+__attribute__((aligned(PGSIZE)))
+static uint64 kernel_user_low_l0[512];
 
 /*
  * LAB2-STAGE1 storage:
@@ -243,6 +255,76 @@ map_shared_special_pages(void)
            STAGE1_USER_STACK, user_stack_pa, PTE_R | PTE_W | PTE_U);
 }
 
+/*
+ * LAB2-STAGE4：为当前 flat 用户程序重建低地址用户映射。
+ *
+ * user.ld 把程序链接在虚拟地址 0，因此这里把程序镜像的第 n 页
+ * 映射到 image_pa + n*PGSIZE。用户栈单独放在 stack_va 指定的页，
+ * 代码和栈都通过同一份 user_pt 供 trampoline.S 的 userret 使用。
+ *
+ * 本实验的低地址映射只使用 user_low_l0 这一页，覆盖 0..2 MiB；
+ * 阶段四的 sh/hi/spin 都远小于这个范围。清空叶子表后再映射，
+ * 使 exec 覆盖镜像时不会遗留旧程序页面。
+ */
+int
+trap_map_user_image(uint64 image_pa, uint64 image_size,
+                    uint64 stack_pa, uint64 stack_va)
+{
+  uint64 va;
+  uint64 image_pages;
+  uint64 i;
+
+  if (image_pa == 0 || image_size == 0 ||
+      stack_pa == 0 || (stack_va % PGSIZE) != 0)
+    return -1;
+
+  image_pages = (image_size + PGSIZE - 1) / PGSIZE;
+  if (image_pages == 0 || image_pages > 512)
+    return -1;
+
+  /* 清掉程序和旧栈在低地址 level-0 页表中的所有旧叶子。 */
+  for (i = 0; i < 512; i++) {
+    user_low_l0[i] = 0;
+    kernel_user_low_l0[i] = 0;
+  }
+
+  /*
+   * root[0] 还必须保留 UART 和 PLIC 的映射。它们原来位于共享的
+   * kernel_l1 中；复制对应的 level-1 项后，把 root[0] 换到专用页。
+   */
+  for (i = 0; i < 512; i++)
+    kernel_user_l1[i] = 0;
+  kernel_user_l1[PX(1, UART0)] = kernel_l1[PX(1, UART0)];
+  kernel_user_l1[PX(1, PLIC)] = kernel_l1[PX(1, PLIC)];
+  kernel_user_l1[PX(1, PLIC + (2 * 1024 * 1024UL))] =
+      kernel_l1[PX(1, PLIC + (2 * 1024 * 1024UL))];
+  kernel_pt[PX(2, 0)] = PA2PTE(kernel_user_l1) | PTE_V;
+
+  for (va = 0; va < image_size; va += PGSIZE) {
+    map_page(user_pt, user_low_l1, user_low_l0,
+             va, image_pa + va, PTE_R | PTE_W | PTE_X | PTE_U);
+    /*
+     * LAB2-STAGE4：sys_read/sys_write 在内核页表下执行，必须能用
+     * 同一个用户虚拟地址访问当前镜像的物理页。
+     */
+    map_page(kernel_pt, kernel_user_l1, kernel_user_low_l0,
+             va, image_pa + va, PTE_R | PTE_W | PTE_X);
+  }
+
+  /* 用户栈页可读写但不可执行。 */
+  map_page(user_pt, user_low_l1, user_low_l0,
+           stack_va, stack_pa, PTE_R | PTE_W | PTE_U);
+  map_page(kernel_pt, kernel_user_l1, kernel_user_low_l0,
+           stack_va, stack_pa, PTE_R | PTE_W);
+
+  /*
+   * 这次映射会被 exec 立即使用；刷新旧 TLB，避免 CPU 继续使用
+   * 前一个程序留下的低地址页表缓存。
+   */
+  sfence_vma();
+  return 0;
+}
+
 /* Encode the kernel page-table root into the Sv39 satp format. */
 static uint64
 kernel_satp(void)
@@ -313,10 +395,6 @@ usertrap(void)
    */
   result = syscall_dispatch(&stage1_tf);
   stage1_tf.a0 = (uint64)result;
-
-  /* LAB2-STAGE3：打印分发结果，便于确认 read/write 的 a7 和返回值。 */
-  printf("lab2 stage3 syscall num=%ld ret=%ld epc=%lx\n",
-         (long)stage1_tf.a7, (long)result, stage1_tf.epc);
 
   /* Prepare CSR state and transfer control to assembly userret. */
   usertrapret();

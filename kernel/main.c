@@ -16,6 +16,7 @@
 
 /* LAB2-STAGE1: declares trap_init() and usertrapret(). */
 #include "trap.h"
+#include "exec.h"      /* LAB2-STAGE4：装载并启动内嵌 Shell。 */
 
 /* LAB2-STAGE1/STAGE2：自测会直接填写 trapframe 的 ABI 寄存器字段。 */
 #include "syscall.h"
@@ -74,7 +75,7 @@ main(void)
    * kernel-side trapframe fields.  main() then fills the user-side starting
    * fields before usertrapret() enters trampoline/userret.
    */
-  printf("lab2 stage3: type one line and wait for UART interrupt\n");
+  printf("lab2 stage4: loading embedded user programs\n");
   /*
    * LAB2-STAGE3：当前仍处于 satp=0 的启动直映阶段，先完成一次
    * UART/PLIC 硬件初始化；随后 trap_init() 切换到带 MMIO 映射的
@@ -93,16 +94,15 @@ main(void)
   intr_on();
 
   /*
-   * LAB2-STAGE3 self-test：
-   * main() 手动构造 trapframe，epc 指向用户态 read/write 测试入口。
+   * LAB2-STAGE4：
+   * 自动化注入脚本仍使用 "$ " 作为启动探针，因此保留一个原始
+   * 提示作为“内核已经完成初始化”的标记。真正进入用户态后，
+   * gifts/user/sh.c 会输出它自己的 "sh> " 提示。
    */
-  /* inject_uart.py 等待这个不带点号的原始 "$ " 提示。 */
   console_puts_raw("$ ");
-  stage1_tf.epc = (uint64)stage3_user_entry;
-  stage1_tf.sp = STAGE1_USER_STACK;
-  stage1_tf.a0 = 0;
-  stage1_tf.a7 = SYS_read;
+  stage4_bootstrap(&stage1_tf);
 
+  /* stage4_bootstrap() 已填好 epc/sp；usertrapret() 完成第一次 sret。 */
   usertrapret();
 
   for (;;)

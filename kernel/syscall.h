@@ -36,8 +36,16 @@
 #define SYS_close  21
 #define SYS_sync   22
 
-/* LAB2-STAGE2：trap.c 把当前 trapframe 交给这里做系统调用分发。 */
+/*
+ * LAB2-STAGE2：trap.c 把当前 trapframe 交给这里做系统调用分发。
+ *
+ * LAB2-STAGE4：同一个头文件还会被用户态 user/usys.S 以汇编方式
+ * include；因此 C 类型声明必须屏蔽，避免汇编器把 struct/long 当成
+ * 指令解析。
+ */
+#ifndef __ASSEMBLER__
 struct trapframe;
 long syscall_dispatch(struct trapframe *tf);
+#endif
 
 #endif
