@@ -1,10 +1,10 @@
 /*
- * Lab 1 entry path.
+ * Lab1 启动入口路径。
  *
- * QEMU starts the first instruction in M mode at 0x80000000.  Keep
- * interrupts disabled while the machine state is prepared, then use mret
- * to enter S mode at start().  Only hart 0 owns the bootstrap stack in
- * this lab; other harts park until a later lab adds SMP support.
+ * QEMU 从 0x80000000 开始执行内核的第一条指令，初始处于 M 态。
+ * 准备机器状态期间保持中断关闭，然后通过 mret 在 start() 处进入
+ * S 态。本实验只有 hart 0 使用启动栈，其他 hart 暂时停车，直到
+ * 后续实验加入 SMP 支持。
  */
 
 #include "course_sid.h"
@@ -18,10 +18,10 @@ _entry:
 
         la      sp, stack_top
 
-        # No machine interrupt can arrive while the M -> S handoff is open.
+        # M 态到 S 态的切换尚未完成时，不允许机器中断进入。
         csrw    mie, zero
         csrr    t0, mstatus
-        li      t1, (1 << 3)          # mstatus.MIE
+        li      t1, (1 << 3)          # mstatus.MIE 位
         not     t1, t1
         and     t0, t0, t1
         csrw    mstatus, t0
@@ -40,7 +40,7 @@ _entry:
 .balign 4
 .type machine_trap, @function
 machine_trap:
-        # There should be no M-mode trap after interrupts are disabled.
+        # 关闭中断后不应再发生 M 态 trap。
         wfi
         j       machine_trap
 
@@ -121,10 +121,10 @@ supervisor_trap:
         addi    sp, sp, 256
         sret
 
-# LAB2-STAGE1:
-# 这是阶段 1保留的最小 ecall 往返程序，专门验证：
+# LAB2-STAGE1：
+# 这是阶段一保留的最小 ecall 往返程序，专门验证：
 #   用户态 ecall -> uservec -> usertrap -> usertrapret -> userret -> sret。
-# 阶段 2的入口在下面另行定义，避免排障时丢失阶段 1基线。
+# 阶段二的入口在下面另行定义，避免排障时丢失阶段一基线。
 .section .text.stage1_user
 .align 2
 .globl stage1_user_entry
@@ -139,12 +139,12 @@ stage1_user_entry:
         ecall
 
 .Lstage1_user_wait:
-        # 阶段 1返回用户态后停在普通跳转循环中。
+        # 阶段一返回用户态后停在普通跳转循环中。
         j       .Lstage1_user_wait
 
 # LAB2-STAGE2：
-# 阶段 2用户态自测按真实 RISC-V syscall ABI 依次执行：
-#   getpid() -> write(1, message, length) -> unknown syscall -> exit(0)
+# 阶段二用户态自测按真实 RISC-V syscall ABI 依次执行：
+#   getpid() -> write(1, message, length) -> 未知系统调用 -> exit(0)
 #
 # 每次 ecall 之前，调用号写入 a7，参数写入 a0-a2；uservec 会把它们
 # 保存到 trapframe，syscall.c 再从 trapframe 取出并写回返回值 a0。
@@ -181,7 +181,7 @@ stage2_user_entry:
         j       .Lstage2_user_wait
 
 # LAB2-STAGE3：
-# 阶段 3用户态自测调用 read(0, buf, 64)，从 UART 行缓冲读到一行后，
+# 阶段三用户态自测调用 read(0, buf, 64)，从 UART 行缓冲读到一行后，
 # 再调用 write(1, buf, n) 原样回显，最后 exit(0)。
 .section .text.stage3_user
 .align 2

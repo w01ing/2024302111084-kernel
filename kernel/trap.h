@@ -4,73 +4,72 @@
 /*
  * LAB2-STAGE1
  *
- * This header describes the C-side view of the memory block used by
- * lab2/gifts/kernel/trampoline.S.  The assembly file does not know these
- * field names; it accesses the block only through fixed byte offsets such as
- * "sd ra, 40(a0)" and "ld sp, 8(a0)".
+ * 本头文件描述 lab2/gifts/kernel/trampoline.S 使用的内存块在 C 语言
+ * 侧的布局。汇编文件不知道这些字段名，只能通过固定字节偏移访问，
+ * 例如 "sd ra, 40(a0)" 和 "ld sp, 8(a0)"。
  */
 
 #include "types.h"
 
 /*
- * LAB2-STAGE1: trapframe is the saved user-mode register image plus the
- * kernel-side values that uservec needs before it can call usertrap().
+ * LAB2-STAGE1：trapframe 由两部分组成：保存的用户态寄存器现场，
+ * 以及 uservec 调用 usertrap() 前需要的内核侧运行环境。
  *
- * The first five words are not user registers:
- *   0   kernel_satp   kernel page-table value
- *   8   kernel_sp     current process's kernel-stack top
- *   16  kernel_trap   address of usertrap()
- *   24  epc           saved user PC, maintained by C code
- *   32  kernel_hartid hart id to restore into tp
+ * 前五个字不是用户寄存器：
+ *   0   kernel_satp   内核页表值
+ *   8   kernel_sp     当前运行现场的内核栈顶
+ *   16  kernel_trap   usertrap() 的地址
+ *   24  epc           由 C 代码维护的用户 PC
+ *   32  kernel_hartid 要恢复到 tp 的 hart 编号
  *
- * Starting at offset 40, the order follows the stores in uservec exactly.
- * Do not reorder fields or insert padding: the assembly uses numeric offsets.
+ * 从偏移 40 开始，字段顺序必须严格对应 uservec 中的保存顺序。
+ * 不能调整字段顺序或插入填充，因为汇编使用的是数字偏移。
  */
 struct trapframe {
-  uint64 kernel_satp;       /* 0: value loaded into satp by uservec */
-  uint64 kernel_sp;         /* 8: value loaded into sp by uservec */
-  uint64 kernel_trap;       /* 16: target loaded into t0 before jalr */
-  uint64 epc;               /* 24: C-side saved sepc / return PC */
-  uint64 kernel_hartid;     /* 32: value loaded into tp by uservec */
+  uint64 kernel_satp;       /* 0：uservec 要写入 satp 的内核页表值 */
+  uint64 kernel_sp;         /* 8：uservec 切换到的内核栈顶 */
+  uint64 kernel_trap;       /* 16：jalr 前装入 t0 的 usertrap 地址 */
+  uint64 epc;               /* 24：C 代码维护的用户返回 PC */
+  uint64 kernel_hartid;     /* 32：恢复到 tp 的 hart 编号 */
 
-  uint64 ra;                /* 40: user return-address register */
-  uint64 sp;                /* 48: user stack pointer */
-  uint64 gp;                /* 56: user global pointer */
-  uint64 tp;                /* 64: user thread pointer */
-  uint64 t0;                /* 72: user temporary register */
-  uint64 t1;                /* 80: user temporary register */
-  uint64 t2;                /* 88: user temporary register */
-  uint64 s0;                /* 96: user saved register */
-  uint64 s1;                /* 104: user saved register */
-  uint64 a0;                /* 112: syscall argument/return value */
-  uint64 a1;                /* 120: syscall argument 2 */
-  uint64 a2;                /* 128: syscall argument 3 */
-  uint64 a3;                /* 136: user argument register */
-  uint64 a4;                /* 144: user argument register */
-  uint64 a5;                /* 152: user argument register */
-  uint64 a6;                /* 160: user argument register */
-  uint64 a7;                /* 168: syscall number */
-  uint64 s2;                /* 176: user saved register */
-  uint64 s3;                /* 184: user saved register */
-  uint64 s4;                /* 192: user saved register */
-  uint64 s5;                /* 200: user saved register */
-  uint64 s6;                /* 208: user saved register */
-  uint64 s7;                /* 216: user saved register */
-  uint64 s8;                /* 224: user saved register */
-  uint64 s9;                /* 232: user saved register */
-  uint64 s10;               /* 240: user saved register */
-  uint64 s11;               /* 248: user saved register */
-  uint64 t3;                /* 256: user temporary register */
-  uint64 t4;                /* 264: user temporary register */
-  uint64 t5;                /* 272: user temporary register */
-  uint64 t6;                /* 280: user temporary register */
+  uint64 ra;                /* 40：用户返回地址寄存器 */
+  uint64 sp;                /* 48：用户栈指针 */
+  uint64 gp;                /* 56：用户全局指针 */
+  uint64 tp;                /* 64：用户线程指针 */
+  uint64 t0;                /* 72：用户临时寄存器 */
+  uint64 t1;                /* 80：用户临时寄存器 */
+  uint64 t2;                /* 88：用户临时寄存器 */
+  uint64 s0;                /* 96：用户保存寄存器 */
+  uint64 s1;                /* 104：用户保存寄存器 */
+  uint64 a0;                /* 112：系统调用参数/返回值 */
+  uint64 a1;                /* 120：系统调用第二个参数 */
+  uint64 a2;                /* 128：系统调用第三个参数 */
+  uint64 a3;                /* 136：用户参数寄存器 */
+  uint64 a4;                /* 144：用户参数寄存器 */
+  uint64 a5;                /* 152：用户参数寄存器 */
+  uint64 a6;                /* 160：用户参数寄存器 */
+  uint64 a7;                /* 168：系统调用号 */
+  uint64 s2;                /* 176：用户保存寄存器 */
+  uint64 s3;                /* 184：用户保存寄存器 */
+  uint64 s4;                /* 192：用户保存寄存器 */
+  uint64 s5;                /* 200：用户保存寄存器 */
+  uint64 s6;                /* 208：用户保存寄存器 */
+  uint64 s7;                /* 216：用户保存寄存器 */
+  uint64 s8;                /* 224：用户保存寄存器 */
+  uint64 s9;                /* 232：用户保存寄存器 */
+  uint64 s10;               /* 240：用户保存寄存器 */
+  uint64 s11;               /* 248：用户保存寄存器 */
+  uint64 t3;                /* 256：用户临时寄存器 */
+  uint64 t4;                /* 264：用户临时寄存器 */
+  uint64 t5;                /* 272：用户临时寄存器 */
+  uint64 t6;                /* 280：用户临时寄存器 */
 };
 
 /*
- * LAB2-STAGE1 self-test objects.
+ * LAB2-STAGE1 自测对象。
  *
- * main() fills this trapframe by hand before the first usertrapret().
- * The trampoline reaches it through the fixed virtual address TRAPFRAME.
+ * main() 在第一次调用 usertrapret() 前手工填写这个 trapframe；
+ * trampoline 通过固定虚拟地址 TRAPFRAME 访问它。
  */
 extern struct trapframe stage1_tf;
 /* LAB2-STAGE1：原阶段 1的 ecall 往返自测入口，保留用于排障回归。 */
@@ -83,10 +82,10 @@ extern char stage2_user_entry[];
 extern char stage3_user_entry[];
 extern char stage3_buffer[];
 
-/* The one-page user stack used by the stage-1 hand-built address space. */
+/* 阶段一手工构造的用户地址空间使用的一页用户栈。 */
 #define STAGE1_USER_STACK 0x4000UL
 
-/* LAB2-STAGE1: build the first user address space and trap entry. */
+/* LAB2-STAGE1：建立第一个用户地址空间和 trap 入口。 */
 void trap_init(void);
 
 /*
@@ -100,7 +99,7 @@ void trap_init(void);
 int trap_map_user_image(uint64 image_pa, uint64 image_size,
                         uint64 stack_pa, uint64 stack_va);
 
-/* LAB2-STAGE1: handle one trap after uservec switches to S-mode context. */
+/* LAB2-STAGE1：uservec 切换到 S 态环境后，由此函数处理一次 trap。 */
 void usertrap(void);
 
 /*
@@ -110,8 +109,8 @@ void usertrap(void);
 void kerneltrap(void);
 
 /*
- * LAB2-STAGE1: prepare CSR/trapframe state, then enter trampoline userret.
- * This function does not itself execute sret; userret does that in assembly.
+ * LAB2-STAGE1：准备 CSR 和 trapframe 状态，然后进入跳板中的 userret。
+ * 本函数不直接执行 sret，真正的寄存器恢复和 sret 由汇编完成。
  */
 void usertrapret(void) __attribute__((noreturn));
 

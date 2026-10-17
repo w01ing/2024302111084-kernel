@@ -171,7 +171,7 @@ uart_init(void)
  *
  * UART0 的硬件 IRQ 号是 10。PLIC 需要同时满足三层条件：
  *   1. IRQ 优先级非零；
- *   2. 当前 hart 的 S-mode enable 位打开；
+ *   2. 当前 hart 的 S 态 enable 位打开；
  *   3. 当前 hart 的 threshold 低于该 IRQ 优先级。
  */
 void

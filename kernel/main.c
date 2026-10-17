@@ -2,11 +2,12 @@
  * Lab1 的 S 态入口和确定性自检输出。
  *
  * start() 中执行 mret 后，CPU 会从这里开始执行；
- * 本函数负责输出个性化 Banner 和 printf 边界测试。
+ * 本函数负责输出个性化 Banner、printf 边界测试，并启动 Lab2。
  */
 
 /* 基础类型定义。 */
 #include "types.h"
+#include "memlayout.h"
 
 /* LAB2-STAGE3：读写 sie，并打开 S 态全局外部中断。 */
 #include "riscv.h"
@@ -14,21 +15,63 @@
 /* 学号和本实验的个性化协议参数。 */
 #include "course_sid.h"
 
-/* LAB2-STAGE1: declares trap_init() and usertrapret(). */
+/* LAB2-STAGE1：声明 trap_init() 和 usertrapret()。 */
 #include "trap.h"
 #include "exec.h"      /* LAB2-STAGE4：装载并启动内嵌 Shell。 */
 
-/* LAB2-STAGE1/STAGE2：自测会直接填写 trapframe 的 ABI 寄存器字段。 */
+/* LAB2-STAGE1/STAGE2：自测会直接填写 trapframe 中的 ABI 寄存器字段。 */
 #include "syscall.h"
 
 /* LAB2-STAGE3：启动 UART 接收中断和 PLIC 外部中断通路。 */
 #include "console.h"
+#include "vm.h"
 
-/* 自己实现的最小 printf。 */
+/* 本项目自己实现的最小 printf。 */
 extern void printf(const char *fmt, ...);
 
-/* 协议 2 需要收尾；协议 0/1 下该函数为空操作。 */
+/* 协议二需要输出收尾信息；协议 0/1 下该函数为空操作。 */
 extern void console_protocol_finish(void);
+extern char kernel_end[];
+
+#ifdef LAB3_ALLOC_SELFTEST
+/* Temporary phase-one validation; disabled in the normal build. */
+static void
+allocator_selftest_main(void)
+{
+  void *held = 0;
+  uint64 count = 0;
+  uint64 expected = 0;
+  uint64 lo = PGROUNDUP((uint64)kernel_end);
+  uint64 hi = PHYSTOP - (uint64)LAB3_MEMCAP_DELTA * PGSIZE;
+
+  if (hi > lo)
+    expected = (hi - lo) / PGSIZE;
+
+  for (;;) {
+    uint8 *page = kalloc();
+    if (!page)
+      break;
+    if (((uint64)page & (PGSIZE - 1)) != 0)
+      for (;;) asm volatile("wfi");
+    for (uint64 i = 0; i < PGSIZE; i++)
+      if (page[i] != 0)
+        for (;;) asm volatile("wfi");
+    *(uint64 *)page = (uint64)held;
+    held = page;
+    count++;
+  }
+
+  if (count != expected)
+    for (;;) asm volatile("wfi");
+
+  while (held) {
+    void *next = (void *)*(uint64 *)held;
+    kfree(held);
+    held = next;
+  }
+  printf("lab3 allocator selftest: pass pages=%ld\n", (long)count);
+}
+#endif
 
 /* 输出实验要求的 printf 边界测试数据。 */
 static void
@@ -36,7 +79,7 @@ printf_boundary_tests(void)
 {
   /*
    * 连续长字符串，用于验证 printf 不会在较长字符串输出时崩溃。
-   * 三段字符串在编译期会自动拼接成一个完整字符串。
+   * 三段字符串会在编译期自动拼接成一个完整字符串。
    */
   static const char long_text[] =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -69,11 +112,11 @@ main(void)
   console_protocol_finish();
 
   /*
-   * LAB2-STAGE1 / LAB2-STAGE3:
-   * main() is still running in S mode after start.c executes mret.
-   * trap_init() creates the minimal user/kernel address spaces and fills the
-   * kernel-side trapframe fields.  main() then fills the user-side starting
-   * fields before usertrapret() enters trampoline/userret.
+   * LAB2-STAGE1 / LAB2-STAGE3：
+   * start.c 执行 mret 后，main() 仍然运行在 S 态。
+   * trap_init() 建立最小的用户/内核地址空间，并填写 trapframe 的
+   * 内核侧字段；随后 main() 填写用户侧初始字段，再由 usertrapret()
+   * 进入 trampoline/userret。
    */
   printf("lab2 stage4: loading embedded user programs\n");
   /*
@@ -83,12 +126,17 @@ main(void)
    */
   uart_init();
   plic_init();
+#ifdef LAB3_ALLOC_SELFTEST
+  /* kinit is repeated by trap_init, restoring the configured free order. */
+  kinit();
+  allocator_selftest_main();
+#endif
   trap_init();
 
   /*
    * LAB2-STAGE3：
    * satp 已切到内核页表，UART 和 PLIC 的 MMIO 映射现在可用；
-   * 打开 S-mode 外部中断后，第一次 sret 就能进入用户 read。
+   * 打开 S 态外部中断后，第一次 sret 就能进入用户 read。
    */
   w_sie(r_sie() | SIE_SEIE);
   intr_on();

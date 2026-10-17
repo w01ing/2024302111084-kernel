@@ -16,7 +16,9 @@ void stage4_bootstrap(struct trapframe *tf);
 long stage4_fork(struct trapframe *tf);
 long stage4_wait(struct trapframe *tf);
 long stage4_exec(struct trapframe *tf);
+long stage4_sbrk(struct trapframe *tf);
 int stage4_getpid(void);
+void stage4_fault(int cause) __attribute__((noreturn));
 void stage4_exit(struct trapframe *tf, int status)
     __attribute__((noreturn));
 

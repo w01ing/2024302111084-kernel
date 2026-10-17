@@ -9,8 +9,8 @@
  *   li a7, SYS_write
  *   ecall
  *
- * 因此这里不是随意编号，而是用户桩与内核分发器共同遵守的 ABI。
- * 阶段 2 只实现 getpid、write、exit 和 sync；其余编号先保留，
+ * 这里的编号不是随意选择的，而是用户态桩和内核分发器共同遵守的 ABI。
+ * 阶段二只实现 getpid、write、exit 和 sync；其余编号先保留，
  * 对应的未实现调用统一返回 -1。
  */
 #define SYS_fork   1
