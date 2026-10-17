@@ -15,6 +15,7 @@ extern void printf(const char *, ...);
 struct run { struct run *next; };
 static struct run *freelist;
 static uint64 alloc_lo, alloc_hi;
+static uint64 free_pages;
 static uint64 kernel_pt_store[512] __attribute__((aligned(PGSIZE)));
 static pagetable_t active_user_pt;
 
@@ -32,6 +33,7 @@ static void free_push(uint64 p) {
   struct run *r = (struct run *)p;
   r->next = freelist;
   freelist = r;
+  free_pages++;
 }
 
 void kinit(void) {
@@ -39,6 +41,7 @@ void kinit(void) {
   alloc_lo = PGROUNDUP((uint64)kernel_end);
   alloc_hi = PHYSTOP - (uint64)LAB3_MEMCAP_DELTA * PGSIZE;
   freelist = 0;
+  free_pages = 0;
   if (alloc_hi <= alloc_lo) return;
   npages = (alloc_hi - alloc_lo) / PGSIZE;
 
@@ -71,7 +74,7 @@ void kinit(void) {
 
 void *kalloc(void) {
   struct run *r = freelist;
-  if (r) { freelist = r->next; zero_page(r); }
+  if (r) { freelist = r->next; free_pages--; zero_page(r); }
   return r;
 }
 
@@ -82,7 +85,9 @@ void kfree(void *pa) {
   free_push(p);
 }
 
-static pte_t *walk(pagetable_t pt, uint64 va, int alloc) {
+uint64 vm_free_count(void) { return free_pages; }
+
+pte_t *walk(pagetable_t pt, uint64 va, int alloc) {
   if (va >= MAXVA) return 0;
   for (int level = 2; level > 0; level--) {
     pte_t *p = &pt[PX(level, va)];
@@ -108,12 +113,45 @@ static int map_one(pagetable_t pt, uint64 va, uint64 pa, uint64 perm) {
   return 0;
 }
 
-int vm_map(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm) {
+static int table_empty(pagetable_t pt) {
+  for (int i = 0; i < 512; i++)
+    if (pt[i] & PTE_V) return 0;
+  return 1;
+}
+
+/* Remove empty intermediate tables below one root path. */
+static void prune_path(pagetable_t pt, uint64 va, int level) {
+  pte_t *p = &pt[PX(level, va)];
+  if (!(*p & PTE_V) || (PTE_FLAGS(*p) & (PTE_R | PTE_W | PTE_X))) return;
+  pagetable_t child = (pagetable_t)PTE2PA(*p);
+  if (level > 0) prune_path(child, va, level - 1);
+  if (level > 0 && table_empty(child)) {
+    *p = 0;
+    kfree(child);
+  }
+}
+
+int mappages(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm) {
+  if (size == 0 || va + size < va || va + size > MAXVA) return -1;
   uint64 a = PGROUNDDOWN(va), last = PGROUNDDOWN(va + size - 1);
+
+  /* Preflight prevents rollback from deleting mappings that predate this call. */
+  for (uint64 check = a;; check += PGSIZE) {
+    pte_t *p = walk(pt, check, 0);
+    if (p && (*p & PTE_V) && (PTE_FLAGS(*p) & (PTE_R | PTE_W | PTE_X)))
+      return -1;
+    if (check == last) break;
+  }
+
   for (;;) {
     if (map_one(pt, a, pa + (a - PGROUNDDOWN(va)), perm) < 0) {
-      /* The caller owns leaf pages supplied through pa. */
-      vm_unmap(pt, PGROUNDDOWN(va), (a - PGROUNDDOWN(va)) / PGSIZE, 0);
+      /* Leaf pages remain caller-owned; only PTEs and empty tables roll back. */
+      for (uint64 rollback = PGROUNDDOWN(va); rollback < a; rollback += PGSIZE) {
+        pte_t *p = walk(pt, rollback, 0);
+        if (p) *p = 0;
+        prune_path(pt, rollback, 2);
+      }
+      prune_path(pt, a, 2);
       return -1;
     }
     if (a == last) break;
@@ -122,11 +160,16 @@ int vm_map(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm) {
   return 0;
 }
 
+int vm_map(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm) {
+  return mappages(pt, va, size, pa, perm);
+}
+
 int vm_unmap(pagetable_t pt, uint64 va, uint64 npages, int do_free) {
   for (uint64 i = 0; i < npages; i++) {
     pte_t *p = walk(pt, va + i * PGSIZE, 0);
     if (!p || !(*p & PTE_V) || !(PTE_FLAGS(*p) & (PTE_R|PTE_W|PTE_X))) continue;
     uint64 pa = PTE2PA(*p); *p = 0; if (do_free) kfree((void *)pa);
+    prune_path(pt, va + i * PGSIZE, 2);
   }
   return 0;
 }

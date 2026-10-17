@@ -73,6 +73,82 @@ allocator_selftest_main(void)
 }
 #endif
 
+#ifdef LAB3_STAGE2_SELFTEST
+static void
+stage2_selftest_fail(void)
+{
+  for (;;) asm volatile("wfi");
+}
+
+static void
+pagetable_selftest_main(void)
+{
+  pagetable_t pt = kalloc();
+  uint64 pages[4];
+  uint64 vas[3] = {0x0000, 0x200000, 0x400000};
+  uint64 perms[3] = {PTE_R | PTE_X | PTE_U,
+                     PTE_R | PTE_W | PTE_U,
+                     PTE_R | PTE_U};
+
+  if (!pt) stage2_selftest_fail();
+  for (int i = 0; i < 4; i++) {
+    pages[i] = (uint64)kalloc();
+    if (!pages[i] || (pages[i] & (PGSIZE - 1))) stage2_selftest_fail();
+  }
+
+  for (int i = 0; i < 3; i++)
+    if (mappages(pt, vas[i], PGSIZE, pages[i], perms[i]) < 0)
+      stage2_selftest_fail();
+
+  for (int i = 0; i < 3; i++) {
+    pte_t *p = walk(pt, vas[i], 0);
+    if (!p || !(*p & PTE_V) || PTE2PA(*p) != pages[i] ||
+        (PTE_FLAGS(*p) & (PTE_R | PTE_W | PTE_X | PTE_U)) != perms[i])
+      stage2_selftest_fail();
+  }
+
+  if (mappages(pt, vas[0], PGSIZE, pages[3], PTE_R | PTE_U) == 0 ||
+      PTE2PA(*walk(pt, vas[0], 0)) != pages[0])
+    stage2_selftest_fail();
+
+  for (int i = 0; i < 3; i++) vm_unmap(pt, vas[i], 1, 1);
+  kfree((void *)pages[3]);
+  kfree(pt);
+
+  /* Consume real free pages, leaving only four for intermediate tables. */
+  uint64 baseline = vm_free_count();
+  pagetable_t rollback_pt = kalloc();
+  uint64 rollback_pa = (uint64)kalloc();
+  void *held = 0;
+  if (!rollback_pt || !rollback_pa) stage2_selftest_fail();
+  while (vm_free_count() > 4) {
+    void *page = kalloc();
+    if (!page) stage2_selftest_fail();
+    *(uint64 *)page = (uint64)held;
+    held = page;
+  }
+  uint64 before_map = vm_free_count();
+  if (before_map != 4 ||
+      mappages(rollback_pt, 0, 64 * 1024 * 1024UL, rollback_pa,
+               PTE_R | PTE_U) == 0 ||
+      (rollback_pt[PX(2, 0)] & PTE_V) ||
+      vm_free_count() != before_map)
+    stage2_selftest_fail();
+  while (held) {
+    void *next = (void *)*(uint64 *)held;
+    kfree(held);
+    held = next;
+  }
+  kfree((void *)rollback_pa);
+  kfree(rollback_pt);
+  uint64 restored = vm_free_count();
+  if (restored != baseline)
+    stage2_selftest_fail();
+  printf("lab3 pagetable selftest: pass free_before=%ld free_after=%ld restored=%ld\n",
+         (long)before_map, (long)before_map, (long)restored);
+}
+#endif
+
 /* 输出实验要求的 printf 边界测试数据。 */
 static void
 printf_boundary_tests(void)
@@ -130,6 +206,10 @@ main(void)
   /* kinit is repeated by trap_init, restoring the configured free order. */
   kinit();
   allocator_selftest_main();
+#endif
+#ifdef LAB3_STAGE2_SELFTEST
+  kinit();
+  pagetable_selftest_main();
 #endif
   trap_init();
 
