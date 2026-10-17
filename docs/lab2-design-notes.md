@@ -315,3 +315,29 @@ PX(level, va) = (va >> (PGSHIFT + 9 * level)) & PXMASK
 4. 通过循环 `kalloc` 将真实空闲页消耗到 4 页，对 64MiB 区间发起需要
    大量中间页表的映射，使分配在中途失败；随后检查根页表项为空、失败
    前后的空闲页数相同，并释放暂存页验证总空闲页数恢复。
+
+## ⑥ 阶段三：内核页表与分页启用
+
+内核根页表由 `vm_init` 建立并由 `trap_init` 激活。映射清单如下：
+
+| 区域 | 虚拟地址 | 物理地址 | 权限 | 目的 |
+| --- | --- | --- | --- | --- |
+| 内核 RAM | `KERNBASE..PHYSTOP` | 同地址 | `RWX`、S 态 | 内核镜像、页表和所有物理页的直接访问 |
+| UART | `UART0` | `UART0` | `RW`、S 态 | 串口驱动访问寄存器 |
+| PLIC | `PLIC..PLIC+0x204000` | 同地址 | `RW`、S 态 | 外部中断控制器访问 |
+| trampoline | `TRAMPOLINE` | trampoline 物理页 | `RX`、S 态 | U/S 态切换代码 |
+| trapframe | `TRAPFRAME` | 当前 trapframe 物理页 | `RW`、S 态 | 保存用户寄存器现场 |
+
+本阶段的链接脚本没有导出 `etext`，因此内核代码段和数据段暂时统一按
+`RWX` 映射，这是实验阶段明确允许的过渡方案。用户页表仍按代码、rodata、
+data/bss 和栈分别设置权限。
+
+`MAKE_SATP(pt)` 将 `SATP_SV39` 的 MODE 字段与根页表物理地址右移 12
+得到的 PPN 组合。写入 `satp` 前后都执行 `sfence.vma zero, zero`，避免
+继续使用旧页表的 TLB 缓存；当前实验为单核环境，因此不需要向其他 hart
+发送 TLB shootdown。多核扩展时，切换页表的 hart 仍需本地刷新，并通过
+核间同步让其他 hart 刷新受影响的地址空间。
+
+阶段三验证由 `LAB3_STAGE3_SELFTEST` 条件编译控制。它检查 `r_satp()`
+是否等于内核根页表、RAM 每个 2MiB 一级叶子、UART/PLIC 4KiB 映射以及
+trampoline/trapframe 权限；默认构建不包含该验证逻辑。

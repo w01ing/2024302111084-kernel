@@ -149,6 +149,53 @@ pagetable_selftest_main(void)
 }
 #endif
 
+#ifdef LAB3_STAGE3_SELFTEST
+static void
+stage3_selftest_fail(void)
+{
+  for (;;) asm volatile("wfi");
+}
+
+static void
+kernel_pagetable_selftest_main(void)
+{
+  pagetable_t pt = kernel_pagetable();
+  pte_t *p;
+
+  if (r_satp() != MAKE_SATP(pt)) stage3_selftest_fail();
+
+  /* The RAM direct map uses 2MiB level-1 leaf entries. */
+  for (uint64 pa = KERNBASE; pa < PHYSTOP; pa += (1UL << 21)) {
+    pte_t root = pt[PX(2, pa)];
+    if (!(root & PTE_V) || (PTE_FLAGS(root) & (PTE_R | PTE_W | PTE_X)))
+      stage3_selftest_fail();
+    pagetable_t l1 = (pagetable_t)PTE2PA(root);
+    pte_t leaf = l1[PX(1, pa)];
+    if (!(leaf & PTE_V) || PTE2PA(leaf) != pa ||
+        (PTE_FLAGS(leaf) & (PTE_R | PTE_W | PTE_X)) !=
+          (PTE_R | PTE_W | PTE_X) || (leaf & PTE_U))
+      stage3_selftest_fail();
+  }
+
+  p = walk(pt, UART0, 0);
+  if (!p || PTE2PA(*p) != UART0 ||
+      (PTE_FLAGS(*p) & (PTE_R | PTE_W | PTE_U)) != (PTE_R | PTE_W))
+    stage3_selftest_fail();
+  p = walk(pt, PLIC, 0);
+  if (!p || PTE2PA(*p) != PLIC ||
+      (PTE_FLAGS(*p) & (PTE_R | PTE_W | PTE_U)) != (PTE_R | PTE_W))
+    stage3_selftest_fail();
+  p = walk(pt, TRAMPOLINE, 0);
+  if (!p || !(PTE_FLAGS(*p) & PTE_X) || (PTE_FLAGS(*p) & PTE_U))
+    stage3_selftest_fail();
+  p = walk(pt, TRAPFRAME, 0);
+  if (!p || !(PTE_FLAGS(*p) & (PTE_R | PTE_W)) || (PTE_FLAGS(*p) & PTE_U))
+    stage3_selftest_fail();
+
+  printf("lab3 kernel pagetable selftest: pass satp=%lx\n", r_satp());
+}
+#endif
+
 /* 输出实验要求的 printf 边界测试数据。 */
 static void
 printf_boundary_tests(void)
@@ -212,6 +259,9 @@ main(void)
   pagetable_selftest_main();
 #endif
   trap_init();
+#ifdef LAB3_STAGE3_SELFTEST
+  kernel_pagetable_selftest_main();
+#endif
 
   /*
    * LAB2-STAGE3：
