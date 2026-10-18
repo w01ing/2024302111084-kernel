@@ -7,7 +7,7 @@ CFLAGS = -Wall -Werror -O -std=gnu99 -mcmodel=medany -ffreestanding \
 QEMU = qemu-system-riscv64
 
 # LAB2-STAGE4：三个链接基址为 0 的内嵌用户程序。
-UPROGS = sh hi spin badaccess memcap
+UPROGS = sh hi spin badaccess memcap guardtest crosscopy
 
 # LAB2-STAGE4：用户程序使用与内核一致的 freestanding RISC-V 选项，
 # 额外的 -I. 让 user/*.c 能找到根目录下的 kernel/*.h。
