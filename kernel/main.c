@@ -196,6 +196,44 @@ kernel_pagetable_selftest_main(void)
 }
 #endif
 
+#ifdef LAB3_STAGE4_SELFTEST
+static void
+stage4_selftest_fail(void)
+{
+  for (;;) asm volatile("wfi");
+}
+
+static void
+user_pagetable_selftest_main(void)
+{
+  pagetable_t pt = user_pagetable();
+  pte_t *code = walk(pt, 0, 0);
+  pte_t *rodata = walk(pt, PGSIZE, 0);
+  pte_t *data = walk(pt, 2 * PGSIZE, 0);
+  pte_t *stack = walk(pt, 0x40000UL, 0);
+  char src[] = "copy-roundtrip";
+  char dst[sizeof(src)];
+
+  pte_t *guard = walk(pt, 3 * PGSIZE, 0);
+  if (!code || !rodata || !data || !stack || !guard ||
+      !(*code & PTE_V) || !(*rodata & PTE_V) || !(*data & PTE_V) ||
+      !(*stack & PTE_V) || (*guard & PTE_V) ||
+      !(PTE_FLAGS(*code) & PTE_X) || (PTE_FLAGS(*code) & PTE_W) ||
+      !(PTE_FLAGS(*rodata) & PTE_R) || (PTE_FLAGS(*rodata) & (PTE_W|PTE_X)) ||
+      !(PTE_FLAGS(*data) & (PTE_R|PTE_W)) || (PTE_FLAGS(*data) & PTE_X) ||
+      !(PTE_FLAGS(*stack) & (PTE_R|PTE_W|PTE_U)) ||
+      copyout(2 * PGSIZE, src, sizeof(src)) < 0 ||
+      copyin(dst, 2 * PGSIZE, sizeof(dst)) < 0)
+    stage4_selftest_fail();
+  for (uint64 i = 0; i < sizeof(src); i++)
+    if (dst[i] != src[i]) stage4_selftest_fail();
+  if (copyout(PGSIZE, src, sizeof(src)) == 0 ||
+      walkaddr(pt, 0, 1) != 0)
+    stage4_selftest_fail();
+  printf("lab3 user pagetable selftest: pass copyin/copyout perms/guard\n");
+}
+#endif
+
 /* 输出实验要求的 printf 边界测试数据。 */
 static void
 printf_boundary_tests(void)
@@ -279,6 +317,9 @@ main(void)
    */
   console_puts_raw("$ ");
   stage4_bootstrap(&stage1_tf);
+#ifdef LAB3_STAGE4_SELFTEST
+  user_pagetable_selftest_main();
+#endif
 
   /* stage4_bootstrap() 已填好 epc/sp；usertrapret() 完成第一次 sret。 */
   usertrapret();

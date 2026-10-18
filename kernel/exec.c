@@ -41,7 +41,10 @@ long stage4_fork(struct trapframe*tf){
   if(cur.pid==1&&!child_active){save=&parent;saved_tf=&parent_tf;active=&child_active;done=&child_done;status=&child_status;childpid=2;}
   else if(cur.pid==2&&child_active&&!nested_active){save=&nested_parent;saved_tf=&nested_tf;active=&nested_active;done=&nested_done;status=&nested_status;childpid=3;}
   else return -1;
-  save->pt=vm_new_user();if(!save->pt||vm_copy(save->pt,cur.pt,PGROUNDUP(cur.sz))<0){if(save->pt)vm_free_user(save->pt,cur.sz);return -1;}
+  save->pt=vm_new_user();
+  if(!save->pt) return -1;
+  /* vm_copy consumes and rolls back dst on failure. */
+  if(vm_copy(save->pt,cur.pt,PGROUNDUP(cur.sz))<0){save->pt=0;return -1;}
   save->base=cur.base;save->sz=cur.sz;save->pid=cur.pid;*saved_tf=*tf;saved_tf->a0=childpid;*active=1;*done=0;*status=0;cur.pid=childpid;return 0;
 }
 long stage4_wait(struct trapframe*tf){

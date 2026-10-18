@@ -203,7 +203,9 @@ pagetable_t vm_new_user(void) {
   extern char trampoline[];
   if (vm_map(pt, TRAMPOLINE, PGSIZE, PGROUNDDOWN((uint64)trampoline), PTE_R|PTE_X) < 0 ||
       vm_map(pt, TRAPFRAME, PGSIZE, PGROUNDDOWN((uint64)&stage1_tf), PTE_R|PTE_W) < 0) {
-    kfree(pt); return 0;
+    /* vm_free_user also releases intermediate tables allocated by vm_map. */
+    vm_free_user(pt, 0);
+    return 0;
   }
   return pt;
 }
@@ -218,19 +220,38 @@ void vm_free_user(pagetable_t pt, uint64 sz) {
 
 int vm_copy(pagetable_t dst, pagetable_t src, uint64 sz) {
   for (uint64 va = 0; va < PGROUNDUP(sz); va += PGSIZE) {
-    pte_t *sp = walk(src, va, 0); if (!sp || !(*sp & PTE_V)) return -1;
-    uint64 pa = (uint64)kalloc(); if (!pa) return -1;
+    pte_t *sp = walk(src, va, 0);
+    if (!sp || !(*sp & PTE_V)) {
+      vm_free_user(dst, va);
+      return -1;
+    }
+    uint64 pa = (uint64)kalloc();
+    if (!pa) {
+      vm_free_user(dst, va);
+      return -1;
+    }
     uint8 *d = (uint8 *)pa, *s = (uint8 *)PTE2PA(*sp);
     for (int i=0;i<PGSIZE;i++) d[i]=s[i];
-    if (map_one(dst, va, pa, PTE_FLAGS(*sp) & (PTE_R|PTE_W|PTE_X|PTE_U)) < 0) { kfree((void*)pa); return -1; }
+    if (map_one(dst, va, pa, PTE_FLAGS(*sp) & (PTE_R|PTE_W|PTE_X|PTE_U)) < 0) {
+      kfree((void*)pa);
+      vm_free_user(dst, va);
+      return -1;
+    }
   }
   pte_t *stack = walk(src, 0x40000, 0);
   if (stack && (*stack & PTE_V)) {
     uint64 pa = (uint64)kalloc();
-    if (!pa) return -1;
+    if (!pa) {
+      vm_free_user(dst, sz);
+      return -1;
+    }
     uint8 *d=(uint8 *)pa, *s=(uint8 *)PTE2PA(*stack);
     for (int i=0;i<PGSIZE;i++) d[i]=s[i];
-    if (map_one(dst, 0x40000, pa, PTE_FLAGS(*stack)&(PTE_R|PTE_W|PTE_X|PTE_U))<0) { kfree((void *)pa); return -1; }
+    if (map_one(dst, 0x40000, pa, PTE_FLAGS(*stack)&(PTE_R|PTE_W|PTE_X|PTE_U))<0) {
+      kfree((void *)pa);
+      vm_free_user(dst, sz);
+      return -1;
+    }
   }
   return 0;
 }

@@ -341,3 +341,33 @@ data/bss 和栈分别设置权限。
 阶段三验证由 `LAB3_STAGE3_SELFTEST` 条件编译控制。它检查 `r_satp()`
 是否等于内核根页表、RAM 每个 2MiB 一级叶子、UART/PLIC 4KiB 映射以及
 trampoline/trapframe 权限；默认构建不包含该验证逻辑。
+
+## ⑦ 阶段四：用户页表、受控拷贝与地址空间生命周期
+
+用户地址空间从虚拟地址 0 开始建立：程序第一个页为 `RXU` 代码页，随后
+按链接脚本对齐的 rodata 页为 `RU`，data/bss 页和用户栈为 `RWU`。栈下方
+保留一个没有 `PTE_V` 的 guard page；它不分配物理页。用户访问它时硬件产生
+instruction/load/store page fault，`usertrap` 将用户异常交给 `stage4_fault`，
+由当前子进程退出并恢复父进程；不会进入内核页表的直接解引用路径。
+
+`copyin/copyout/copyinstr` 按页边界分段，先用 `walkaddr` 检查 `PTE_V`、
+`PTE_U` 及读/写权限，再复制当前页内的字节。逐页检查的开销低于逐字节查表，
+同时不会因跨页缓冲区尾部无映射或权限不符而越界；`copyinstr` 在每个字节
+处复用同一检查，遇到无 NUL 字符或非法页返回 `-1`。
+
+`vm_new_user` 先建立 trampoline/trapframe 固定映射。`exec` 使用临时新页表
+加载完整镜像和栈，全部成功后才替换旧页表；失败时保留旧地址空间。`fork`
+通过 `vm_copy` 逐页复制代码、数据和栈，子页表拥有独立物理页。`vm_copy` 的
+任一中途失败都会释放已经复制的叶子页和新建中间页表，并把目标根页表一并
+释放；调用方不再二次释放，原进程页表和物理页保持不变。
+
+`sbrk(n>0)` 逐页建立 `RWU` 映射，任一页分配或映射失败都撤销本次已经建立
+的页并返回 `-1`，旧边界保持不变；`sbrk(n<0)` 解除对应叶子映射并释放物理页。
+地址上限由 `PHYSTOP-LAB3_MEMCAP_DELTA*PGSIZE` 的分配器配额和用户地址布局
+共同限制，OOM 状态逐层返回到系统调用层，不触发内核 panic。
+
+阶段四验证：`LAB3_STAGE4_SELFTEST` 只检查当前 sh 地址空间的代码、rodata、
+data、栈和 guard page，以及 `copyin/copyout` 的读写权限；正式构建默认关闭。
+运行时再输入 `badaccess`，应看到两个 `TEST-3a/3b PASS` 并回到 `sh>`；输入
+`memcap`，应看到 `TEST-4 PASS` 且之后输入 `hi` 仍能运行。该组合同时覆盖
+异常杀进程、父进程回收、sbrk OOM 回滚、受控拷贝和 Shell 存活。
