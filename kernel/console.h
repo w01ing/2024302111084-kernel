@@ -4,6 +4,8 @@
 #include "types.h"
 
 /*
+ * LAB3：UART/PLIC 初始化后的 MMIO 访问依赖内核页表；设备中断进入
+ * trampoline/kerneltrap 后再由 devintr() claim/complete UART IRQ。
  * LAB2-STAGE3：
  * 控制台模块同时提供以下路径：
  *   1. uart_init()：配置 16550 接收中断；

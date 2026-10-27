@@ -18,6 +18,11 @@
  * 和 copyin 会在后续虚拟内存阶段补齐。
  */
 
+/*
+ * Lab3 系统调用层的安全边界：用户寄存器中的地址只是一个 VA，不能在
+ * S 态直接解引用。所有读用户数据的路径都经过 copyin/copyinstr，所有
+ * 写用户数据的路径都经过 copyout，由 vm.c 统一检查 PTE_U 和 R/W 权限。
+ */
 #include "types.h"
 #include "trap.h"
 #include "syscall.h"
@@ -43,6 +48,7 @@
 static int
 argint(struct trapframe *tf, int index, int *out)
 {
+  /* 参数已经由 trampoline 保存到 trapframe，不能依赖当前 C 寄存器值。 */
   uint64 value;
 
   if (index == 0)
@@ -67,6 +73,7 @@ argint(struct trapframe *tf, int index, int *out)
 static int
 argaddr(struct trapframe *tf, int index, uint64 *out)
 {
+  /* 地址参数只做 ABI 提取；真正的映射和权限检查由 copyin/copyout 完成。 */
   if (index == 0)
     *out = tf->a0;
   else if (index == 1)
@@ -101,6 +108,10 @@ sys_getpid(void)
 static long
 sys_write(struct trapframe *tf)
 {
+  /*
+   * 先复制到内核栈上的 buffer，再交给 UART。这样即使用户传入 0、未映射
+   * 地址或跨页缓冲区，也不会让内核直接访问错误的用户 VA。
+   */
   int fd;
   int count;
   uint64 address;
@@ -120,6 +131,7 @@ sys_write(struct trapframe *tf)
   if (address == 0)
     return -1;
 
+  /* copyin 会逐页检查权限，因此一个系统调用可以安全处理跨页输入。 */
   if (count > (int)sizeof(buffer) || copyin(buffer, address, count) < 0)
     return -1;
   return console_write_raw(buffer, count);
@@ -135,6 +147,10 @@ sys_write(struct trapframe *tf)
 static long
 sys_read(struct trapframe *tf)
 {
+  /*
+   * 输入先放入内核 buffer，console_read 完成后再 copyout 到用户页；
+   * 这避免 UART/控制台代码直接解引用用户指针。
+   */
   int fd;
   int count;
   uint64 address;
@@ -154,6 +170,7 @@ sys_read(struct trapframe *tf)
   char buffer[256];
   if (count > (int)sizeof(buffer)) return -1;
   long n = console_read(buffer, count);
+  /* 用户目标页必须可写，且 copyout 会正确处理跨页目标缓冲区。 */
   if (n < 0 || copyout(address, buffer, n) < 0) return -1;
   return n;
 }
@@ -168,6 +185,7 @@ sys_read(struct trapframe *tf)
 __attribute__((noreturn)) static void
 sys_exit(struct trapframe *tf)
 {
+  /* exit 是 noreturn 系统调用，真正的地址空间回收由 stage4_exit 完成。 */
   int status;
 
   if (argint(tf, 0, &status) < 0)
@@ -185,6 +203,10 @@ sys_exit(struct trapframe *tf)
 long
 syscall_dispatch(struct trapframe *tf)
 {
+  /*
+   * a7 是系统调用号，a0-a2 是参数。每个处理函数只返回 long，最终由
+   * usertrap 把返回值写回 trapframe.a0，再由 trampoline 恢复到用户态。
+   */
   switch (tf->a7) {
   case SYS_read:
     return sys_read(tf);

@@ -48,6 +48,10 @@ machine_trap:
 .globl supervisor_trap
 .type supervisor_trap, @function
 supervisor_trap:
+	# LAB3：内核态 trap 入口。与用户态 uservec 不同，这里已经在内核
+	# 页表和内核栈环境中，因此只需保存通用寄存器后调用 kerneltrap。
+        # LAB3：该入口由内核页表中的 stvec 使用，用户态 trap 由
+        # kernel/trampoline.S 的 uservec 处理；两者不能混用。
         # LAB2-STAGE3：
         # 这里处理 S 态内核代码运行期间到来的外部中断，例如
         # sys_read() 在 WFI 中等待键盘输入时收到的 UART 中断。

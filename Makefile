@@ -23,6 +23,8 @@ UFLAGS = -Wall -Werror -O -std=gnu99 -mcmodel=medany -ffreestanding \
 # LAB2-STAGE4：
 # exec.o 负责加载内嵌的平铺用户程序，并提供最小 fork/wait/exec 运行时；
 # userimg.o 包含自动生成的用户程序表。
+# LAB3：vm.o 提供页表/物理页管理；kernel/trampoline.o 提供用户 trap
+# 的汇编跳板，替换 Lab2 中仅用于固定地址空间的赠送 trampoline 对象。
 OBJS = kernel/entry.o kernel/start.o kernel/console.o kernel/printf.o \
        kernel/main.o kernel/trap.o kernel/syscall.o kernel/exec.o \
        kernel/vm.o kernel/userimg.o kernel/trampoline.o

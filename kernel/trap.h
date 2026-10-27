@@ -1,3 +1,10 @@
+/*
+ * Lab3 trapframe 布局。
+ *
+ * 这是 C 和 trampoline.S 共享的 ABI，不是可以随意重排的普通结构体。
+ * 汇编代码用固定字节偏移保存和恢复寄存器，因此字段顺序、字段数量
+ * 和每个字段的偏移必须始终与 trampoline.S 保持一致。
+ */
 #ifndef LAB2_TRAP_H
 #define LAB2_TRAP_H
 
@@ -24,6 +31,10 @@
  *
  * 从偏移 40 开始，字段顺序必须严格对应 uservec 中的保存顺序。
  * 不能调整字段顺序或插入填充，因为汇编使用的是数字偏移。
+ */
+/*
+ * LAB3：前五项是 uservec 切换到内核执行所需的上下文；后续项是用户
+ * 通用寄存器。任何字段增删或重排都必须同步修改 trampoline.S 的偏移。
  */
 struct trapframe {
   uint64 kernel_satp;       /* 0：uservec 要写入 satp 的内核页表值 */
@@ -71,6 +82,7 @@ struct trapframe {
  * main() 在第一次调用 usertrapret() 前手工填写这个 trapframe；
  * trampoline 通过固定虚拟地址 TRAPFRAME 访问它。
  */
+/* 当前简化运行时只有一个活动用户进程，因此使用一个共享 trapframe。 */
 extern struct trapframe stage1_tf;
 /* LAB2-STAGE1：原阶段 1的 ecall 往返自测入口，保留用于排障回归。 */
 extern char stage1_user_entry[];
@@ -85,7 +97,7 @@ extern char stage3_buffer[];
 /* 阶段一手工构造的用户地址空间使用的一页用户栈。 */
 #define STAGE1_USER_STACK 0x4000UL
 
-/* LAB2-STAGE1：建立第一个用户地址空间和 trap 入口。 */
+/* 初始化内核页表、trapframe 的内核字段和用户 trap 入口。 */
 void trap_init(void);
 
 /*
@@ -99,7 +111,7 @@ void trap_init(void);
 int trap_map_user_image(uint64 image_pa, uint64 image_size,
                         uint64 stack_pa, uint64 stack_va);
 
-/* LAB2-STAGE1：uservec 切换到 S 态环境后，由此函数处理一次 trap。 */
+/* trampoline.uservec 完成寄存器保存和页表切换后进入这里。 */
 void usertrap(void);
 
 /*
@@ -109,7 +121,7 @@ void usertrap(void);
 void kerneltrap(void);
 
 /*
- * LAB2-STAGE1：准备 CSR 和 trapframe 状态，然后进入跳板中的 userret。
+ * 准备 CSR 和 trapframe 状态，然后进入跳板中的 userret。
  * 本函数不直接执行 sret，真正的寄存器恢复和 sret 由汇编完成。
  */
 void usertrapret(void) __attribute__((noreturn));

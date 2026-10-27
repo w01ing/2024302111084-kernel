@@ -1,3 +1,4 @@
+// LAB3：物理页上限和 OOM 回滚测试，验证 kalloc 失败不会导致内核崩溃。
 // 官方测试 · lab3-test2:内存上限(LAB3_MEMCAP_DELTA)与 OOM 语义
 // 断言(与 sid 无关):
 //   1. sbrk 越过 (总页数 − DELTA) 上限时返回 -1(或等价错误),内核不 panic;
@@ -10,10 +11,12 @@
 int
 main(void)
 {
+    // 持续申请并写入新页，直到物理分配器触发课程规定的内存上限。
     int rounds = 0;
     char *last = 0;
     for(;;){
         char *p = sbrk(CHUNK);
+        // LAB3：sbrk 分配失败必须返回错误，之前已经成功的页面仍可使用。
         if(p == (char *)-1 || p == 0)
             break;                       // OOM:规范要求报错而非 panic
         for(int i = 0; i < CHUNK; i += 4096)

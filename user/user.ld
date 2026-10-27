@@ -5,6 +5,7 @@
  * 虚拟地址映射到程序所在的物理页。
  */
 OUTPUT_ARCH(riscv)
+/* LAB3：用户 flat binary 按虚拟地址 0 链接，install() 才能把入口设为 epc=0。 */
 ENTRY(main)
 
 SECTIONS

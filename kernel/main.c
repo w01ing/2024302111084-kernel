@@ -6,6 +6,7 @@
  */
 
 /* 基础类型定义。 */
+/* LAB3：main 在完成 UART/PLIC 初始化后，负责启动内核页表和用户页表。 */
 #include "types.h"
 #include "memlayout.h"
 
@@ -38,6 +39,10 @@ extern char kernel_end[];
 static void
 allocator_selftest_main(void)
 {
+  /*
+   * 先把所有可用页全部取出，再逐页检查：数量、4KB 对齐和清零语义。
+   * 之后按链表指针释放，验证 kfree 能恢复原始空闲页数量。
+   */
   void *held = 0;
   uint64 count = 0;
   uint64 expected = 0;
@@ -83,6 +88,10 @@ stage2_selftest_fail(void)
 static void
 pagetable_selftest_main(void)
 {
+  /*
+   * 第一部分验证多级索引、叶子权限、重复映射拒绝和正常拆除；
+   * 第二部分故意把空闲页耗尽，验证 mappages 中途失败时能够回滚。
+   */
   pagetable_t pt = kalloc();
   uint64 pages[4];
   uint64 vas[3] = {0x0000, 0x200000, 0x400000};
@@ -159,6 +168,7 @@ stage3_selftest_fail(void)
 static void
 kernel_pagetable_selftest_main(void)
 {
+  /* 检查 satp 已指向内核根页表，并逐项检查 RAM/MMIO/高地址共享映射。 */
   pagetable_t pt = kernel_pagetable();
   pte_t *p;
 
@@ -206,6 +216,7 @@ stage4_selftest_fail(void)
 static void
 user_pagetable_selftest_main(void)
 {
+  /* 检查用户代码、只读数据、可写数据、栈、guard page 和 copy 权限。 */
   pagetable_t pt = user_pagetable();
   pte_t *code = walk(pt, 0, 0);
   pte_t *rodata = walk(pt, PGSIZE, 0);
@@ -234,7 +245,7 @@ user_pagetable_selftest_main(void)
 }
 #endif
 
-/* 输出实验要求的 printf 边界测试数据。 */
+  /* 输出实验要求的 printf 边界测试数据，确认分页切换没有破坏串口输出。 */
 static void
 printf_boundary_tests(void)
 {
@@ -256,6 +267,10 @@ printf_boundary_tests(void)
 __attribute__((noreturn)) void
 main(void)
 {
+  /*
+   * 启动顺序：先输出 Lab1 Banner，再初始化设备；设备初始化完成后
+   * trap_init 才会开启内核页表，最后建立 sh 的用户地址空间并 sret。
+   */
   /*
    * 输出个性化 Banner。
    * 学号超过 32 位，因此使用 %ld 和 long，避免被截断。
@@ -285,10 +300,12 @@ main(void)
    * UART/PLIC 硬件初始化；随后 trap_init() 切换到带 MMIO 映射的
    * 内核页表，运行期中断处理再通过该页表访问同一组寄存器。
    */
+  /* 分页开启前先完成设备初始化，之后 MMIO 由内核页表映射。 */
   uart_init();
   plic_init();
+
 #ifdef LAB3_ALLOC_SELFTEST
-  /* kinit is repeated by trap_init, restoring the configured free order. */
+  /* 自测独立调用 kinit；trap_init 后还会再次初始化正式运行时分配器。 */
   kinit();
   allocator_selftest_main();
 #endif
@@ -296,7 +313,10 @@ main(void)
   kinit();
   pagetable_selftest_main();
 #endif
+
+  /* 建立物理分配器、内核三级页表并写入 satp，正式开启 Sv39。 */
   trap_init();
+
 #ifdef LAB3_STAGE3_SELFTEST
   kernel_pagetable_selftest_main();
 #endif
@@ -316,12 +336,15 @@ main(void)
    * gifts/user/sh.c 会输出它自己的 "sh> " 提示。
    */
   console_puts_raw("$ ");
+  /* 创建 sh 的独立用户地址空间和第一次返回用户态的寄存器现场。 */
   stage4_bootstrap(&stage1_tf);
+
 #ifdef LAB3_STAGE4_SELFTEST
   user_pagetable_selftest_main();
 #endif
 
   /* stage4_bootstrap() 已填好 epc/sp；usertrapret() 完成第一次 sret。 */
+  /* LAB3：通过 trampoline 切到用户页表，最终由 sret 进入 sh。 */
   usertrapret();
 
   for (;;)

@@ -254,10 +254,15 @@ w_pmpaddr0(uint64 x)
   asm volatile("csrw pmpaddr0, %0" : : "r"(x));
 }
 
-// use riscv's sv39 page table scheme.
+/*
+ * Lab3 使用 RISC-V Sv39 三级页表。
+ * satp 的高 4 位 MODE=8 表示 Sv39，低位保存根页表物理地址的 PPN。
+ * MAKE_SATP 接收一个可被内核直接访问的页表地址，右移 12 位后写入 PPN。
+ */
 #define SATP_SV39 (8L << 60)
 
-#define MAKE_SATP(pagetable) (SATP_SV39 | (((uint64)pagetable) >> 12))
+#define MAKE_SATP(pagetable) \
+  (SATP_SV39 | (((uint64)pagetable) >> 12)) /* LAB3：根页表地址写入 PPN。 */
 
 // supervisor address translation and protection;
 // holds the address of the page table.
@@ -393,6 +398,7 @@ icache_fence()
   asm volatile("fence.i" ::: "memory");
 }
 
+/* 一个页表页正好包含 512 个 8 字节 PTE，pagetable_t 指向第一个 PTE。 */
 typedef uint64 pte_t;
 typedef uint64 *pagetable_t; // 512 PTEs
 
@@ -404,23 +410,23 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PGROUNDUP(sz)  (((sz) + PGSIZE - 1) & ~(PGSIZE - 1))
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
 
-#define PTE_V (1L << 0) // valid
-#define PTE_R (1L << 1)
-#define PTE_W (1L << 2)
-#define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // user can access
+#define PTE_V (1L << 0) // PTE 有效；无效项不能参与地址转换。
+#define PTE_R (1L << 1) // 允许 load；copyin 也要求此位。
+#define PTE_W (1L << 2) // 允许 store；copyout 和用户写入要求此位。
+#define PTE_X (1L << 3) // 允许取指；代码页通常设置此位。
+#define PTE_U (1L << 4) // 允许 U 态访问；内核页表页和 MMIO 不设置此位。
 
 // shift a physical address to the right place for a PTE.
-#define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
+#define PA2PTE(pa) ((((uint64)pa) >> 12) << 10) // 物理页号 PPN 放入 PTE[53:10]。
 
-#define PTE2PA(pte) (((pte) >> 10) << 12)
+#define PTE2PA(pte) (((pte) >> 10) << 12) // 从 PTE[53:10] 取回物理页基址。
 
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
 // extract the three 9-bit page table indices from a virtual address.
 #define PXMASK         0x1FF // 9 bits
 #define PXSHIFT(level) (PGSHIFT + (9 * (level)))
-#define PX(level, va)  ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK)
+#define PX(level, va)  ((((uint64)(va)) >> PXSHIFT(level)) & PXMASK) /* 取 VPN[level] 的 9 位索引。 */
 
 // one beyond the highest possible virtual address.
 // MAXVA is actually one bit less than the max allowed by

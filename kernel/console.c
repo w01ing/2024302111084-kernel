@@ -156,6 +156,7 @@ console_write_raw(const char *s, int count)
 void
 uart_init(void)
 {
+  /* LAB3：分页开启后 UART 仍通过内核页表的 MMIO 映射访问。 */
   *uart_reg(UART_IER) = 0;
   *uart_reg(UART_LCR) = UART_LCR_BAUD_LATCH;
   *uart_reg(0) = 0x03; /* DLL：QEMU 16550 的常用分频值。 */
@@ -177,6 +178,7 @@ uart_init(void)
 void
 plic_init(void)
 {
+  /* LAB3：PLIC 的 MMIO 区域也必须在内核页表中映射，供外部中断处理访问。 */
   volatile uint32 *priority =
       (volatile uint32 *)(PLIC_PRIORITY + UART0_IRQ * 4);
   volatile uint32 *enable =
