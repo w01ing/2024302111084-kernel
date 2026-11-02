@@ -48,3 +48,9 @@ void printf(const char *, ...) __attribute__((format(printf, 1, 2)));
 // umalloc.c
 void *malloc(uint);
 void free(void *);
+// lab4 观测规范(见 support/schedstat.patch 语义定义;pid=-1 查自身)
+int schedstat(int pid, int *cpu_ticks, int *last_slice_ticks);
+// lab4 时间戳观测(测试框架计时依赖):返回 time CSR 计数(非 tick),见 support/schedstat.patch
+unsigned long time_rdtime(void);
+// lab4 策略测试:设置本进程票数(彩票/步长策略)
+int setickets(int tickets);
