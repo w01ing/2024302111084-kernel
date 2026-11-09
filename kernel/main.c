@@ -19,6 +19,7 @@
 /* LAB2-STAGE1：声明 trap_init() 和 usertrapret()。 */
 #include "trap.h"
 #include "exec.h"      /* LAB2-STAGE4：装载并启动内嵌 Shell。 */
+#include "proc.h"
 
 /* LAB2-STAGE1/STAGE2：自测会直接填写 trapframe 中的 ABI 寄存器字段。 */
 #include "syscall.h"
@@ -326,8 +327,10 @@ main(void)
    * satp 已切到内核页表，UART 和 PLIC 的 MMIO 映射现在可用；
    * 打开 S 态外部中断后，第一次 sret 就能进入用户 read。
    */
-  w_sie(r_sie() | SIE_SEIE);
-  intr_on();
+  procinit();
+  userinit();
+  timerinit();
+  w_sie(r_sie() | SIE_SEIE | SIE_STIE);//S 态外部中断使能&S 态定时器中断使能
 
   /*
    * LAB2-STAGE4：
@@ -336,17 +339,10 @@ main(void)
    * gifts/user/sh.c 会输出它自己的 "sh> " 提示。
    */
   console_puts_raw("$ ");
-  /* 创建 sh 的独立用户地址空间和第一次返回用户态的寄存器现场。 */
-  stage4_bootstrap(&stage1_tf);
-
 #ifdef LAB3_STAGE4_SELFTEST
   user_pagetable_selftest_main();
 #endif
 
-  /* stage4_bootstrap() 已填好 epc/sp；usertrapret() 完成第一次 sret。 */
-  /* LAB3：通过 trampoline 切到用户页表，最终由 sret 进入 sh。 */
-  usertrapret();
-
-  for (;;)
-    asm volatile("wfi");
+  /* The scheduler owns the boot stack and dispatches the first user process. */
+  scheduler();
 }

@@ -1,0 +1,6 @@
+EXPECT sh>
+SEND hi
+EXPECT hi: user program running, pid=2
+REPEAT 8 hi
+WAIT 2000
+EXPECT hi: user program running, pid=10

@@ -1,56 +1,19 @@
-/*
- * LAB2-STAGE2：系统调用参数解析与分发。
- *
- * 阶段一已经证明 trampoline.S 能够把用户寄存器完整保存到
- * trapframe，并且能把 trapframe.a0 中的值恢复回用户态。阶段二
- * 不再把 a7 当作一个孤立的测试数字，而是把它解释为系统调用号：
- *
- *   a7       -> 系统调用号
- *   a0..a2   -> 三个调用参数
- *   返回值   -> trapframe.a0
- *
- * 当前还没有正式的进程表、文件表和用户地址空间隔离。因此：
- *   1. getpid() 使用阶段四简化运行时维护的父/子编号；
- *   2. write() 允许标准输出/标准错误，并直接读取当前用户映射中的地址；
- *   3. exit() 在阶段四子程序结束时恢复 fork 暂存的 Shell。
- *
- * 直接读取用户指针是实验接口明确允许的过渡做法，完整的地址检查
- * 和 copyin 会在后续虚拟内存阶段补齐。
- */
-
-/*
- * Lab3 系统调用层的安全边界：用户寄存器中的地址只是一个 VA，不能在
- * S 态直接解引用。所有读用户数据的路径都经过 copyin/copyinstr，所有
- * 写用户数据的路径都经过 copyout，由 vm.c 统一检查 PTE_U 和 R/W 权限。
- */
 #include "types.h"
+#include "riscv.h"
 #include "trap.h"
 #include "syscall.h"
-#include "exec.h"      /* LAB2-STAGE4：sh/hi/spin 的装载和伪进程状态。 */
-#include "vm.h"
-/* LAB2-STAGE3：read(0, ...) 连接到控制台输入环形缓冲区。 */
 #include "console.h"
+#include "proc.h"
+#include "vm.h"
 
-/* LAB2-STAGE2：write 允许使用的标准输出文件描述符。 */
 #define STDOUT_FD 1
 #define STDERR_FD 2
+#define SYSCALL_IO_MAX 4096
 
-/* LAB2-STAGE2：限制长度，防止错误参数导致无限读取内存。 */
-#define STAGE2_WRITE_MAX 4096
-
-/*
- * 从 trapframe 中读取一个整数参数。
- *
- * ecall 进入 uservec 后，用户 a0、a1、a2 已经分别保存到
- * trapframe->a0、a1、a2。系统调用层只读取这些已保存的值，
- * 不直接依赖 C 函数调用时的寄存器状态。
- */
 static int
 argint(struct trapframe *tf, int index, int *out)
 {
-  /* 参数已经由 trampoline 保存到 trapframe，不能依赖当前 C 寄存器值。 */
   uint64 value;
-
   if (index == 0)
     value = tf->a0;
   else if (index == 1)
@@ -59,21 +22,13 @@ argint(struct trapframe *tf, int index, int *out)
     value = tf->a2;
   else
     return -1;
-
   *out = (int)value;
   return 0;
 }
 
-/*
- * 读取一个地址参数。
- *
- * 阶段二只有 write() 使用用户指针。这里先完成 ABI 层面的参数提取；
- * 真正的用户地址合法性检查留给后续页表和 copyin 阶段。
- */
 static int
 argaddr(struct trapframe *tf, int index, uint64 *out)
 {
-  /* 地址参数只做 ABI 提取；真正的映射和权限检查由 copyin/copyout 完成。 */
   if (index == 0)
     *out = tf->a0;
   else if (index == 1)
@@ -82,153 +37,103 @@ argaddr(struct trapframe *tf, int index, uint64 *out)
     *out = tf->a2;
   else
     return -1;
-
   return 0;
 }
 
-/* LAB2-STAGE4：getpid() 返回当前 Shell/子程序的简化进程编号。 */
-static long
-sys_getpid(void)
-{
-  return stage4_getpid();
-}
-
-/*
- * LAB2-STAGE2：最小 write 实现。
- *
- * 参数约定：
- *   a0 = fd
- *   a1 = 用户缓冲区地址
- *   a2 = 字节数
- *
- * 返回成功写出的字节数；文件描述符、地址或长度非法时返回 -1。
- * 当前阶段的用户页表把用户镜像映射在低地址，因此这里可以直接
- * 解引用用户地址；阶段四的输出改走原始 UART，不再追加 Lab1 句点。
- */
 static long
 sys_write(struct trapframe *tf)
 {
-  /*
-   * 先复制到内核栈上的 buffer，再交给 UART。这样即使用户传入 0、未映射
-   * 地址或跨页缓冲区，也不会让内核直接访问错误的用户 VA。
-   */
-  int fd;
-  int count;
+  int fd, count;
   uint64 address;
   char buffer[256];
-
-  if (argint(tf, 0, &fd) < 0 ||
-      argaddr(tf, 1, &address) < 0 ||
+  if (argint(tf, 0, &fd) < 0 || argaddr(tf, 1, &address) < 0 ||
       argint(tf, 2, &count) < 0)
     return -1;
-
-  if (fd != STDOUT_FD && fd != STDERR_FD)
-    return -1;
-  if (count < 0 || count > STAGE2_WRITE_MAX)
+  if ((fd != STDOUT_FD && fd != STDERR_FD) || count < 0 ||
+      count > SYSCALL_IO_MAX || count > (int)sizeof(buffer))
     return -1;
   if (count == 0)
     return 0;
-  if (address == 0)
-    return -1;
-
-  /* copyin 会逐页检查权限，因此一个系统调用可以安全处理跨页输入。 */
-  if (count > (int)sizeof(buffer) || copyin(buffer, address, count) < 0)
+  if (!address || copyin(buffer, address, count) < 0)
     return -1;
   return console_write_raw(buffer, count);
 }
 
-/*
- * LAB2-STAGE3：最小 read 实现。
- *
- * 阶段三只开放标准输入 fd=0。用户缓冲区地址直接传给
- * console_read()，因为当前过渡页表把低地址 RAM 直映给了用户；
- * 后续页表阶段再把这里替换成 copyout/copyin。
- */
 static long
 sys_read(struct trapframe *tf)
 {
-  /*
-   * 输入先放入内核 buffer，console_read 完成后再 copyout 到用户页；
-   * 这避免 UART/控制台代码直接解引用用户指针。
-   */
-  int fd;
-  int count;
+  int fd, count;
   uint64 address;
-
-  if (argint(tf, 0, &fd) < 0 ||
-      argaddr(tf, 1, &address) < 0 ||
+  char buffer[256];
+  if (argint(tf, 0, &fd) < 0 || argaddr(tf, 1, &address) < 0 ||
       argint(tf, 2, &count) < 0)
     return -1;
-
-  if (fd != 0 || count < 0 || count > STAGE2_WRITE_MAX)
+  if (fd != 0 || count < 0 || count > (int)sizeof(buffer))
     return -1;
   if (count == 0)
     return 0;
-  if (address == 0)
+  if (!address)
     return -1;
-
-  char buffer[256];
-  if (count > (int)sizeof(buffer)) return -1;
-  long n = console_read(buffer, count);
-  /* 用户目标页必须可写，且 copyout 会正确处理跨页目标缓冲区。 */
-  if (n < 0 || copyout(address, buffer, n) < 0) return -1;
+  int n = console_read(buffer, count);
+  if (n < 0 || copyout(address, buffer, n) < 0)
+    return -1;
   return n;
 }
 
-/*
- * LAB2-STAGE4：exit 的最小语义。
- *
- * 子程序退出时由 stage4_exit() 恢复 fork 保存的 Shell trapframe；
- * 如果没有父现场可恢复，则停在内核安全循环中。重要的是 exit
- * 不会返回用户态，符合用户桩的 noreturn 语义。
- */
-__attribute__((noreturn)) static void
-sys_exit(struct trapframe *tf)
+static long
+sys_schedstat(struct trapframe *tf)
 {
-  /* exit 是 noreturn 系统调用，真正的地址空间回收由 stage4_exit 完成。 */
-  int status;
-
-  if (argint(tf, 0, &status) < 0)
-    status = -1;
-
-  stage4_exit(tf, status);
+  int pid, cpu_ticks, last_slice_ticks;
+  uint64 cpu_addr, slice_addr;
+  if (argint(tf, 0, &pid) < 0 || argaddr(tf, 1, &cpu_addr) < 0 ||
+      argaddr(tf, 2, &slice_addr) < 0 || !cpu_addr || !slice_addr)
+    return -1;
+  if (proc_schedstat(pid, &cpu_ticks, &last_slice_ticks) < 0)
+    return -1;
+  if (copyout(cpu_addr, &cpu_ticks, sizeof(cpu_ticks)) < 0 ||
+      copyout(slice_addr, &last_slice_ticks, sizeof(last_slice_ticks)) < 0)
+    return -1;
+  return 0;
 }
 
-/*
- * LAB2-STAGE2：按照赠送件 syscall.h 中的编号进行系统调用分发。
- *
- * 每个处理函数只负责完成自己的语义；返回值统一由 usertrap()
- * 写入 trapframe->a0，再由 userret 恢复给用户程序。
- */
 long
 syscall_dispatch(struct trapframe *tf)
 {
-  /*
-   * a7 是系统调用号，a0-a2 是参数。每个处理函数只返回 long，最终由
-   * usertrap 把返回值写回 trapframe.a0，再由 trampoline 恢复到用户态。
-   */
+  int value;
   switch (tf->a7) {
+  case SYS_fork:
+    return proc_fork();
+  case SYS_exit:
+    if (argint(tf, 0, &value) < 0)
+      value = -1;
+    proc_exit(value);
+  case SYS_wait:
+    return proc_wait(tf->a0);
   case SYS_read:
     return sys_read(tf);
-  /* LAB2-STAGE4：Shell 通过这三个调用启动和等待用户程序。 */
-  case SYS_fork:
-    return stage4_fork(tf);
-  case SYS_wait:
-    return stage4_wait(tf);
+  case SYS_kill:
+    return argint(tf, 0, &value) < 0 ? -1 : proc_kill(value);
   case SYS_exec:
-    return stage4_exec(tf);
-  case SYS_sbrk:
-    return stage4_sbrk(tf);
+    return proc_exec(tf->a0);
   case SYS_getpid:
-    return sys_getpid();
+    return myproc()->pid;
+  case SYS_sbrk:
+    return argint(tf, 0, &value) < 0 ? -1 : proc_sbrk(value);
+  case SYS_pause:
+    return argint(tf, 0, &value) < 0 ? -1 : proc_pause(value);
+  case SYS_uptime:
+    return ticks;
   case SYS_write:
     return sys_write(tf);
-  case SYS_exit:
-    sys_exit(tf);
   case SYS_sync:
     return 0;
+  case SYS_schedstat:
+    return sys_schedstat(tf);
+  case SYS_time_rdtime:
+    return (long)r_time();
+  case SYS_setickets:
+    return argint(tf, 0, &value) < 0 ? -1 : proc_settickets(value);
   default:
-    /* 未知或尚未实现的调用必须稳定返回 -1，不能让内核崩溃。 */
     return -1;
   }
 }

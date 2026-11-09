@@ -12,6 +12,8 @@
 #include "types.h"
 #include "riscv.h"
 
+struct trapframe;
+
 #define SBRK_EAGER 1
 #define SBRK_LAZY  2
 
@@ -31,7 +33,7 @@ pagetable_t kernel_pagetable(void);
 pagetable_t user_pagetable(void);
 void vm_set_user_pagetable(pagetable_t pt);
 /* 创建或销毁用户地址空间。 */
-pagetable_t vm_new_user(void);
+pagetable_t vm_new_user(struct trapframe *trapframe);
 void vm_free_user(pagetable_t pt, uint64 sz);
 /* 查找虚拟地址对应的最后一级 PTE；alloc 控制是否创建中间页表。 */
 pte_t *walk(pagetable_t pt, uint64 va, int alloc);

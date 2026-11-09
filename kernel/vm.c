@@ -375,13 +375,14 @@ void vm_set_user_pagetable(pagetable_t pt) { active_user_pt = pt; }
  * TRAMPOLINE 供用户 trap 入口/返回使用，TRAPFRAME 供 trampoline 保存现场。
  * 用户代码、数据和栈由 exec/install 或 sbrk 后续加入。
  */
-pagetable_t vm_new_user(void) {
+pagetable_t vm_new_user(struct trapframe *trapframe) {
   /* 用户页表根本身也是一个物理页，先申请根，再建立两个高地址共享页。 */
   pagetable_t pt = kalloc();
   if (!pt) return 0;
   extern char trampoline[];
-  if (vm_map(pt, TRAMPOLINE, PGSIZE, PGROUNDDOWN((uint64)trampoline), PTE_R|PTE_X) < 0 ||
-      vm_map(pt, TRAPFRAME, PGSIZE, PGROUNDDOWN((uint64)&stage1_tf), PTE_R|PTE_W) < 0) {
+  if (!trapframe ||
+      vm_map(pt, TRAMPOLINE, PGSIZE, PGROUNDDOWN((uint64)trampoline), PTE_R|PTE_X) < 0 ||
+      vm_map(pt, TRAPFRAME, PGSIZE, PGROUNDDOWN((uint64)trapframe), PTE_R|PTE_W) < 0) {
     /* vm_free_user also releases intermediate tables allocated by vm_map. */
     vm_free_user(pt, 0);
     return 0;

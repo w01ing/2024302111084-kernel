@@ -43,6 +43,12 @@ start(void)
    */
   w_mcounteren(0x7);
 
+  /* Allow S mode to program stimecmp directly (Sstc extension). */
+  w_menvcfg(r_menvcfg() | MENVCFG_STCE);
+
+  /* tp indexes the per-CPU structure after mret. */
+  w_tp(r_mhartid());
+
   /*
    * 配置 PMP 地址范围。
    * 最大 NAPOT 地址表示覆盖整个物理地址空间，包含内核 RAM 和 UART MMIO。

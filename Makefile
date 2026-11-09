@@ -6,9 +6,13 @@ CFLAGS = -Wall -Werror -O -std=gnu99 -mcmodel=medany -ffreestanding \
          -nostdlib -fno-common -ggdb -march=rv64gc -fno-stack-protector -fno-pie
 QEMU = qemu-system-riscv64
 
+# User binaries share temporary user-flat objects in the inherited build rule.
+.NOTPARALLEL:
+
 # LAB2-STAGE4：三个链接基址为 0 的内嵌用户程序。
 UPROGS = sh hi spin badaccess memcap guardtest crosscopy
 UPROGS += bench lottery_test stride_test
+UPROGS += alt lottery_observe lottery_reticket
 
 # LAB2-STAGE4：用户程序使用与内核一致的 freestanding RISC-V 选项，
 # 额外的 -I. 让 user/*.c 能找到根目录下的 kernel/*.h。
@@ -28,7 +32,8 @@ UFLAGS = -Wall -Werror -O -std=gnu99 -mcmodel=medany -ffreestanding \
 # 的汇编跳板，替换 Lab2 中仅用于固定地址空间的赠送 trampoline 对象。
 OBJS = kernel/entry.o kernel/start.o kernel/console.o kernel/printf.o \
        kernel/main.o kernel/trap.o kernel/syscall.o kernel/exec.o \
-       kernel/vm.o kernel/userimg.o kernel/trampoline.o kernel/swtch.o
+       kernel/vm.o kernel/spinlock.o kernel/userimg.o kernel/trampoline.o \
+       kernel/swtch.o
 
 kernel/kernel: $(OBJS) kernel/kernel.ld
 	$(LD) -T kernel/kernel.ld -o $@ $(OBJS)

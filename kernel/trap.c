@@ -1,82 +1,195 @@
-/* LAB3：trap 路径负责在用户页表、内核页表和 trampoline 之间协调切换。 */
 #include "types.h"
 #include "riscv.h"
 #include "memlayout.h"
 #include "trap.h"
 #include "syscall.h"
 #include "console.h"
-#include "exec.h"
+#include "proc.h"
+#include "spinlock.h"
 #include "vm.h"
+#include "course_sid.h"
 
 extern char trampoline[], userret[];
 extern void supervisor_trap(void);
 extern void printf(const char *, ...);
 
-/*
- * 当前简化运行时只有一个活动用户进程，所以共享一个 trapframe。
- * trampoline 保存用户寄存器，C 代码修改返回 PC/系统调用返回值，随后
- * userret 再从同一块内存恢复寄存器。
- */
-struct trapframe stage1_tf __attribute__((aligned(16)));
-static uint8 kernel_stack[PGSIZE] __attribute__((aligned(PGSIZE)));
-/*
- * userret 在链接时是内核镜像中的符号；运行时却必须从高地址
- * TRAMPOLINE 执行。用两个符号的差值保留它在 trampoline 页内的偏移。
- */
-static uint64 userret_va(void){return TRAMPOLINE+((uint64)userret-(uint64)trampoline);}
+/* Kept for the Lab3 kernel-page-table regression mapping. */
+struct trapframe stage1_tf __attribute__((aligned(PGSIZE)));
 
-/*
- * LAB3：初始化虚拟内存和第一次用户 trap 所需的内核侧现场。
- * vm_init() 会开启内核页表；随后 trampoline 才能在用户 trap 时切回它。
- */
-void trap_init(void){
-  /* 先建立内核页表并开启分页，后续 trap 才能稳定访问内核代码。 */
+static uint64
+userret_va(void)
+{
+  return TRAMPOLINE + ((uint64)userret - (uint64)trampoline);
+}
+
+void
+trap_init(void)
+{
   vm_init();
-  /* uservec 切入 C 代码前需要知道内核页表、内核栈和 usertrap 地址。 */
-  stage1_tf.kernel_satp=MAKE_SATP(kernel_pagetable());
-  stage1_tf.kernel_sp=(uint64)&kernel_stack[PGSIZE];
-  stage1_tf.kernel_trap=(uint64)usertrap;
-  stage1_tf.kernel_hartid=0;
-  w_stvec(TRAMPOLINE);
+  stage1_tf.kernel_satp = MAKE_SATP(kernel_pagetable());
+  stage1_tf.kernel_trap = (uint64)usertrap;
+  stage1_tf.kernel_hartid = 0;
+  w_stvec((uint64)supervisor_trap);
 }
 
-int trap_map_user_image(uint64 a,uint64 b,uint64 c,uint64 d){(void)a;(void)b;(void)c;(void)d;return -1;}
-
-/* LAB3：在内核页表/内核栈上处理用户 ecall、设备中断和用户页错误。 */
-void usertrap(void){
-  /* C 处理阶段使用内核 trap 入口，避免递归回到用户 trampoline。 */
-  uint64 cause=r_scause(); w_stvec((uint64)supervisor_trap);
-  /* 外部中断交给 UART/PLIC 处理；处理完成后恢复原用户现场。 */
-  if((cause>>63)&&(cause&0xfff)==9){if(devintr()){usertrapret();return;}}
-  /* ecall 的 sepc 指向 ecall 指令本身，返回时必须跳过一条指令。 */
-  if(cause==8){stage1_tf.epc=r_sepc()+4;stage1_tf.a0=(uint64)syscall_dispatch(&stage1_tf);usertrapret();}
-  /* 其他原因通常是用户页错误，交给统一的进程终止路径。 */
-  printf("user trap fault scause=%lx sepc=%lx stval=%lx\n",cause,r_sepc(),r_stval());
-  stage4_fault((int)cause);
+int
+trap_map_user_image(uint64 a, uint64 b, uint64 c, uint64 d)
+{
+  (void)a;
+  (void)b;
+  (void)c;
+  (void)d;
+  return -1;
 }
 
-/* LAB3：处理已经发生在 S 态内核中的外部中断或异常。 */
-void kerneltrap(void){uint64 c=r_scause();if((c>>63)&&(c&0xfff)==9&&devintr())return;printf("kernel trap scause=%lx sepc=%lx stval=%lx\n",c,r_sepc(),r_stval());for(;;)asm volatile("wfi");}
+static int
+is_timer_interrupt(uint64 cause)
+{
+  return (cause >> 63) && (cause & 0xfff) == 5;
+}
 
-/*
- * LAB3：准备从 S 态返回 U 态。
- * 设置用户返回特权级、用户 PC、用户 trap 入口，并通过 trampoline 的
- * userret 切换到当前用户页表；不能在 C 函数中直接写 satp 后继续执行，
- * 因为当前 C 代码的映射会随页表切换而失效。
- */
-void usertrapret(void){
-  /* 清除 SPP，使 sret 返回 U 态；SPIE 控制返回后的中断使能状态。 */
-  uint64 s=r_sstatus();
-  s&=~SSTATUS_SPP;
-  s|=SSTATUS_SPIE;
-  w_sstatus(s);
-  /* 下一次用户 trap 仍从用户页表中的高地址 trampoline 进入。 */
+static int
+is_external_interrupt(uint64 cause)
+{
+  return (cause >> 63) && (cause & 0xfff) == 9;
+}
+
+// 用户态 trap 的统一入口（由 trampoline 跳进来，stvec 此时指向 trampoline）。
+// 处理四类事件：外部设备中断、定时器中断、系统调用（ecall）、其他异常。
+// 处理完统一走 usertrapret() 返回用户态；若进程已被标记 killed，则退出。
+void
+usertrap(void)
+{
+  struct proc *p = myproc();
+  if (!p)
+    panic("usertrap no proc");   // 用户 trap 时必须有当前进程，否则是内核 bug
+
+  // 读 trap 原因（scause 编码了是哪种中断/异常）
+  uint64 cause = r_scause();
+
+  // ---- 关键：把 stvec 从 trampoline 改回 supervisor_trap ----
+  // 进入 trap 时 stvec 指向 trampoline（用户态 trap 的固定入口）；
+  // 现在已经在内核态处理了，要改回 supervisor_trap，
+  // 这样如果内核态再发生 trap（比如中断），能进入 kernelvec 而不是又回 trampoline。
+  w_stvec((uint64)supervisor_trap);
+
+  // 保存用户态 PC（sepc）到 trapframe。返回用户态时 usertrapret 会从这里恢复，
+  // 所以如果下面改了 epc（比如 syscall 后 +4），返回的用户 PC 就相应变化。
+  p->trapframe->epc = r_sepc();
+
+  // ---- 分支一：外部设备中断（scause=9，PLIC 汇聚的设备中断）----
+  if (is_external_interrupt(cause)) {
+    // devintr 内部会去 PLIC claim IRQ、分发到 UART/磁盘等驱动、再 complete
+    devintr();
+
+  // ---- 分支二：定时器中断（scause=5，时间片到期）----
+  } else if (is_timer_interrupt(cause)) {
+    clockintr();              // 处理时钟中断本身（re-arm stimecmp、ticks++ 等）
+
+    // 统计本进程占用 CPU 的 tick 数，以及本时间片已用 tick 数（MLFQ 判断用）
+    p->cpu_ticks++;
+    p->last_slice_ticks++;
+
+    // ---- 按策略决定是否抢占/降级 ----
+    if (LAB4_POLICY_ID <= 2) {
+      // MLFQ 策略：level 越高优先级越低
+      // 总级数 = POLICY_ID + 2（策略 0/1/2 分别对应 2/3/4 级）
+      int levels = LAB4_POLICY_ID + 2;
+
+      // 当前级的时间片 = 基础 tick 数 << level（level 越低，时间片越短，优先级越高）
+      int quantum = LAB2_TICK << p->mlfq_level;
+
+      // 本片用完：降级（若还没到最低级）并让出 CPU
+      if (p->last_slice_ticks >= quantum) {
+        if (p->mlfq_level + 1 < levels)
+          p->mlfq_level++;      // 降到更低优先级队列
+        yield();                // 主动让出 CPU，让调度器重新选择
+      }
+      // 注：如果本片还没用完，就不 yield，继续让用户态跑
+    } else {
+      // 策略 3/4（彩票/stride）：每个 tick 都 yield，实现"时间片轮转"
+      // 保证调度器能按票数/pass 公平地重新分配 CPU
+      yield();
+    }
+
+  // ---- 分支三：系统调用（scause=8，用户态 ecall）----
+  } else if (cause == 8) {
+    // 如果进程在进入 trap 前已被标记 killed，不必执行系统调用，直接退出
+    if (p->killed)
+      proc_exit(-1);
+
+    // 用户态 ecall 是 4 字节指令，返回后要跳过它，否则会无限循环
+    p->trapframe->epc += 4;
+
+    // 处理 syscall 期间允许中断（系统调用可能耗时长，如磁盘 I/O）
+    intr_on();
+
+    // 分发系统调用，返回值写到 a0（RISC-V 的返回值寄存器）
+    p->trapframe->a0 = (uint64)syscall_dispatch(p->trapframe);
+
+  // ---- 分支四：其他异常/缺页 ----
+  } else {
+    // 打印诊断信息：cause、出错的用户 PC、出错的地址（stval）
+    printf("user trap fault scause=%lx sepc=%lx stval=%lx\n",
+           cause, r_sepc(), r_stval());
+    // 异常通常无法恢复，直接以 scause 作为退出码退出进程
+    proc_exit((int)cause);
+  }
+
+  // ---- 统一的退出检查 ----
+  // 如果处理过程中（或中断到来时）进程被标记 killed（比如别的进程发了 kill），
+  // 现在退出，不再返回用户态继续跑
+  if (p->killed)
+    proc_exit(-1);
+
+  // ---- 返回用户态 ----
+  // 构造 sret 现场：恢复 sstatus、sepc、satp、stvec 等，
+  // 最后 sret 从 S 态跳回 U 态，用户程序从 trapframe->epc 继续
+  usertrapret();
+}
+
+void
+kerneltrap(void)
+{
+  uint64 sepc = r_sepc();
+  uint64 status = r_sstatus();
+  uint64 cause = r_scause();
+
+  if (!(status & SSTATUS_SPP))
+    panic("kerneltrap privilege");
+  if (is_timer_interrupt(cause)) {
+    clockintr();
+  } else if (is_external_interrupt(cause)) {
+    devintr();
+  } else {
+    printf("kernel trap scause=%lx sepc=%lx stval=%lx\n",
+           cause, sepc, r_stval());
+    panic("kerneltrap");
+  }
+  w_sepc(sepc);
+  w_sstatus(status);
+}
+
+void
+usertrapret(void)
+{
+  struct proc *p = myproc();
+  if (!p)
+    panic("usertrapret no proc");
+  intr_off();
+
+  p->trapframe->kernel_satp = MAKE_SATP(kernel_pagetable());
+  p->trapframe->kernel_sp = p->kstack + PGSIZE;
+  p->trapframe->kernel_trap = (uint64)usertrap;
+  p->trapframe->kernel_hartid = r_tp();
+
+  uint64 status = r_sstatus();
+  status &= ~SSTATUS_SPP;
+  status |= SSTATUS_SPIE;
+  w_sstatus(status);
   w_stvec(TRAMPOLINE);
-  w_sepc(stage1_tf.epc);
-  /* 为下一次 uservec 重新填写内核页表和 C 入口。 */
-  stage1_tf.kernel_satp=MAKE_SATP(kernel_pagetable());
-  stage1_tf.kernel_trap=(uint64)usertrap;
-  /* 切换 satp 后 C 代码的地址可能失效，因此必须交给 userret 汇编。 */
-  ((void(*)(uint64))userret_va())(MAKE_SATP(user_pagetable()));
-  for(;;);
+  w_sepc(p->trapframe->epc);
+
+  ((void (*)(uint64))userret_va())(MAKE_SATP(p->pagetable));
+  panic("userret returned");
 }

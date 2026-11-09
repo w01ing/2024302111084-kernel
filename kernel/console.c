@@ -19,6 +19,8 @@
 
 /* LAB2-STAGE3：控制台中断和 read() 的公开接口。 */
 #include "console.h"
+#include "proc.h"
+#include "spinlock.h"
 
 /* UART 发送保持寄存器 THR 的寄存器偏移。 */
 #define UART_THR 0
@@ -92,6 +94,7 @@ static char console_buf[LAB2_BUF_SIZE];
 static uint64 console_r;
 static uint64 console_w;
 static uint64 console_e;
+static struct spinlock console_lock;
 
 /* 向 UART 写一个原始字节，键盘回显不叠加 Lab1 的句点协议。 */
 static void
@@ -156,6 +159,7 @@ console_write_raw(const char *s, int count)
 void
 uart_init(void)
 {
+  initlock(&console_lock, "console");
   /* LAB3：分页开启后 UART 仍通过内核页表的 MMIO 映射访问。 */
   *uart_reg(UART_IER) = 0;
   *uart_reg(UART_LCR) = UART_LCR_BAUD_LATCH;
@@ -204,6 +208,11 @@ static void
 console_input_char(char c)
 {
   uint64 used;
+
+  if (c == 0x10) {
+    procdump();
+    return;
+  }
 
   /* 退格删除尚未提交的最后一个字符。 */
   if (c == '\b' || c == 0x7f) {
@@ -254,10 +263,15 @@ console_input_char(char c)
 static void
 uart_intr(void)
 {
+  acquire(&console_lock);
   while ((*uart_reg(UART_IIR) & UART_IIR_NO_INTERRUPT) == 0) {
+    uint64 old_w = console_w;
     char c = (char)*uart_reg(UART_RHR);
     console_input_char(c);
+    if (console_w != old_w)
+      wakeup(&console_r);
   }
+  release(&console_lock);
 }
 
 /*
@@ -283,12 +297,6 @@ devintr(void)
   return 0;
 }
 
-/*
- * LAB2-STAGE3：从输入环形缓冲区读取字符。
- *
- * 这里还没有 lab4 的 sleep/wakeup，因此采用“关中断检查、开中断
- * WFI”的最小阻塞方案。这样不会在检查和等待之间丢失 UART 中断。
- */
 int
 console_read(char *dst, int count)
 {
@@ -297,9 +305,8 @@ console_read(char *dst, int count)
   if (dst == 0 || count <= 0)
     return count == 0 ? 0 : -1;
 
+  acquire(&console_lock);
   for (;;) {
-    intr_off();
-
     while (console_r != console_w && copied < count) {
       char c = console_buf[console_r % LAB2_BUF_SIZE];
       console_r++;
@@ -312,12 +319,14 @@ console_read(char *dst, int count)
     }
 
     if (copied != 0) {
-      intr_on();
+      release(&console_lock);
       return copied;
     }
-
-    intr_on();
-    asm volatile("wfi");
+    if (myproc()->killed) {
+      release(&console_lock);
+      return -1;
+    }
+    sleep(&console_r, &console_lock);
   }
 }
 
