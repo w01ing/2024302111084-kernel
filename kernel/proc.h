@@ -83,7 +83,7 @@ void procdump(void);
 
 int proc_fork(void);
 int proc_wait(uint64 status_addr);
-int proc_exec(uint64 name_addr);
+int proc_exec(uint64 name_addr, uint64 argv_addr);
 int proc_sbrk(int n);
 void proc_exit(int status) __attribute__((noreturn));
 int proc_kill(int pid);

@@ -59,6 +59,8 @@ int uvm_check_range(pagetable_t pt, uint64 va, uint64 len, uint64 want_perm);
 uint64 walkaddr(pagetable_t pt, uint64 va, int write);
 /* 在内核缓冲区和用户地址空间之间进行跨页安全复制。 */
 int copyin(void *dst, uint64 srcva, uint64 len);
+/* 向指定用户页表复制，供 exec 在提交新地址空间前构造用户栈。 */
+int copyout_pt(pagetable_t pt, uint64 dstva, const void *src, uint64 len);
 int copyout(uint64 dstva, const void *src, uint64 len);
 /* 安全复制 NUL 结尾的用户字符串。 */
 int copyinstr(char *dst, uint64 srcva, uint64 max);

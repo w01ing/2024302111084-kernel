@@ -836,7 +836,7 @@ proc_exit(int status)
 }
 
 int
-proc_exec(uint64 name_addr)
+proc_exec(uint64 name_addr, uint64 argv_addr)
 {
   char name[64];
   if (copyinstr(name, name_addr, sizeof(name)) < 0)
@@ -845,16 +845,70 @@ proc_exec(uint64 name_addr)
   if (!e)
     return -1;
 
+  char *arg_page = kalloc();
+  if (!arg_page)
+    return -1;
+
+  uint64 arg_offset[MAXARG];
+  uint64 used = 0;
+  int argc;
+  for (argc = 0; argc < MAXARG; argc++) {
+    uint64 slot = argv_addr + (uint64)argc * sizeof(uint64);
+    uint64 uarg;
+    if (slot < argv_addr || copyin(&uarg, slot, sizeof(uarg)) < 0)
+      goto bad_args;
+    if (uarg == 0)
+      break;
+    if (used >= PGSIZE ||
+        copyinstr(arg_page + used, uarg, PGSIZE - used) < 0)
+      goto bad_args;
+    arg_offset[argc] = used;
+    while (used < PGSIZE && arg_page[used] != '\0')
+      used++;
+    if (used == PGSIZE)
+      goto bad_args;
+    used++;
+  }
+  if (argc == MAXARG)
+    goto bad_args;
+
   struct proc *p = myproc();
   pagetable_t newpt = vm_new_user(p->trapframe);
   if (!newpt)
-    return -1;
+    goto bad_args;
   struct trapframe newtf;
   uint64 newsz = 0;
   if (load_program(newpt, &newtf, e, &newsz) < 0) {
     vm_free_user(newpt, newsz);
-    return -1;
+    goto bad_args;
   }
+
+  uint64 sp = USER_STACK_TOP;
+  uint64 ustack[MAXARG + 1];
+  for (int i = 0; i < argc; i++) {
+    char *arg = arg_page + arg_offset[i];
+    uint64 len = 1;
+    while (arg[len - 1] != '\0')
+      len++;
+    if (len > sp - USER_STACK_PAGE)
+      goto bad_newpt;
+    sp = (sp - len) & ~0xfUL;
+    if (sp < USER_STACK_PAGE || copyout_pt(newpt, sp, arg, len) < 0)
+      goto bad_newpt;
+    ustack[i] = sp;
+  }
+  ustack[argc] = 0;
+
+  uint64 argv_size = (uint64)(argc + 1) * sizeof(uint64);
+  if (argv_size > sp - USER_STACK_PAGE)
+    goto bad_newpt;
+  sp = (sp - argv_size) & ~0xfUL;
+  if (sp < USER_STACK_PAGE ||
+      copyout_pt(newpt, sp, ustack, argv_size) < 0)
+    goto bad_newpt;
+  newtf.sp = sp;
+  newtf.a1 = sp;
+
   pagetable_t oldpt = p->pagetable;
   uint64 oldsz = p->sz;
   p->pagetable = newpt;
@@ -864,7 +918,14 @@ proc_exec(uint64 name_addr)
   set_name(p, name);
   vm_set_user_pagetable(newpt);
   vm_free_user(oldpt, oldsz);
-  return 0;
+  kfree(arg_page);
+  return argc;
+
+bad_newpt:
+  vm_free_user(newpt, newsz);
+bad_args:
+  kfree(arg_page);
+  return -1;
 }
 
 int

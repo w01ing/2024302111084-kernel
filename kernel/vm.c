@@ -713,14 +713,14 @@ int copyin(void *dst, uint64 srcva, uint64 len) {
   /* 每次只处理当前页剩余部分，跨页后重新检查下一页的 PTE 权限。 */
   uint8 *d=dst; while (len) { uint64 pa=walkaddr(active_user_pt,srcva,0); if(!pa)return -1; uint64 n=PGSIZE-(srcva&(PGSIZE-1)); if(n>len)n=len; for(uint64 i=0;i<n;i++)d[i]=((uint8*)pa)[i]; d+=n;srcva+=n;len-=n; } return 0;
 }
-/* LAB3：按页边界把内核数据复制到用户地址空间。 */
-int copyout(uint64 dstva, const void *src, uint64 len) {
+/* LAB3：按页边界把内核数据复制到指定用户地址空间。 */
+int copyout_pt(pagetable_t pt, uint64 dstva, const void *src, uint64 len) {
   /* 内核写入用户页前也必须触发 COW，避免 read/wait 等调用误报只读。 */
-  if (uvm_check_range(active_user_pt, dstva, len, PTE_W) < 0)
+  if (uvm_check_range(pt, dstva, len, PTE_W) < 0)
     return -1;
   const uint8 *s = src;
   while (len) {
-    uint64 pa = walkaddr(active_user_pt, dstva, 1);
+    uint64 pa = walkaddr(pt, dstva, 1);
     if (!pa)
       return -1;
     uint64 n = PGSIZE - (dstva & (PGSIZE - 1));
@@ -733,6 +733,10 @@ int copyout(uint64 dstva, const void *src, uint64 len) {
     len -= n;
   }
   return 0;
+}
+/* 向当前进程地址空间复制的兼容入口。 */
+int copyout(uint64 dstva, const void *src, uint64 len) {
+  return copyout_pt(active_user_pt, dstva, src, len);
 }
 /* LAB3：安全复制用户字符串，遇到 NUL 成功，越界或超长则失败。 */
 int copyinstr(char *dst, uint64 srcva, uint64 max) {

@@ -129,7 +129,7 @@ syscall_dispatch(struct trapframe *tf)
   case SYS_kill:
     return argint(tf, 0, &value) < 0 ? -1 : proc_kill(value);
   case SYS_exec:
-    return proc_exec(tf->a0);
+    return proc_exec(tf->a0, tf->a1);
   case SYS_getpid:
     return myproc()->pid;
   case SYS_sbrk:
