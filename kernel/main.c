@@ -318,6 +318,9 @@ main(void)
   /* 建立物理分配器、内核三级页表并写入 satp，正式开启 Sv39。 */
   trap_init();
 
+  /* LAB5 阶段一：验证引用计数增减、共享统计和归零回收守恒。 */
+  kref_selftest();
+
 #ifdef LAB3_STAGE3_SELFTEST
   kernel_pagetable_selftest_main();
 #endif

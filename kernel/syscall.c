@@ -96,6 +96,19 @@ sys_schedstat(struct trapframe *tf)
   return 0;
 }
 
+static long
+sys_pmc(struct trapframe *tf)
+{
+  int which;
+  if (argint(tf, 0, &which) < 0)
+    return -1;
+  if (which == 0)
+    return (long)kcow_copy_count();
+  if (which == 1)
+    return (long)kshared_count();
+  return -1;
+}
+
 long
 syscall_dispatch(struct trapframe *tf)
 {
@@ -133,6 +146,8 @@ syscall_dispatch(struct trapframe *tf)
     return (long)r_time();
   case SYS_setickets:
     return argint(tf, 0, &value) < 0 ? -1 : proc_settickets(value);
+  case SYS_pmc:
+    return sys_pmc(tf);
   default:
     return -1;
   }

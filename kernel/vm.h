@@ -27,6 +27,13 @@ void *kalloc(void);
 void kfree(void *pa);
 /* 返回空闲页数量，供自测和 OOM 回滚测试使用。 */
 uint64 vm_free_count(void);
+/* LAB5：全局物理页引用计数与观测接口。 */
+uint64 kfree_count(void);
+void kref_inc(uint64 pa);
+uint16 kref_get(uint64 pa);
+uint64 kshared_count(void);
+uint64 kcow_copy_count(void);
+void kref_selftest(void);
 
 /* 当前内核页表和当前简化运行时的用户页表。 */
 pagetable_t kernel_pagetable(void);

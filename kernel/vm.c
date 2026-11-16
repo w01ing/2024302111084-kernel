@@ -9,6 +9,7 @@
 #include "riscv.h"
 #include "memlayout.h"
 #include "course_sid.h"
+#include "spinlock.h"
 #include "trap.h"
 #include "vm.h"
 
@@ -18,13 +19,20 @@ extern void printf(const char *, ...);
 #define PTE_A (1L << 6)
 #define PTE_D (1L << 7)
 #define KERNEL_MAP_2M (1UL << 21)
+#define TOTAL_PAGES ((PHYSTOP - KERNBASE) / PGSIZE)
 
 /* LAB3：空闲物理页链表节点。节点本身放在空闲页的起始位置。 */
 struct run { struct run *next; };
-/* freelist 指向第一个空闲页；free_pages 与链表中的节点数量保持一致。 */
-static struct run *freelist;
+/* LAB5：空闲链表和全局引用计数由同一把锁保护。 */
+static struct {
+  struct spinlock lock;
+  struct run *freelist;
+  uint16 refcnt[TOTAL_PAGES];
+  uint64 free_pages;
+  uint64 shared_pages;
+  uint64 cow_copies;
+} kmem;
 static uint64 alloc_lo, alloc_hi;
-static uint64 free_pages;
 /* 内核根页表放在静态数组中，避免建立内核页表时依赖自身的映射。 */
 static uint64 kernel_pt_store[512] __attribute__((aligned(PGSIZE)));
 /* copyin/copyout 使用的当前用户页表；单进程简化运行时只需要一个。 */
@@ -39,15 +47,28 @@ static void zero_page(void *p) {
 /* LAB3：释放页填充固定字节，帮助发现释放后继续使用等错误。 */
 static void junk_page(void *p) {
   uint8 *b = p;
-  for (uint64 i = 0; i < PGSIZE; i++) b[i] = 0x01;
+  for (uint64 i = 0; i < PGSIZE; i++) b[i] = 0x5a;
 }
 
-/* LAB3：将一个已经验证过的物理页压入空闲链表。 */
-static void free_push(uint64 p) {
+static uint64
+page_index(uint64 pa)
+{
+  return (pa - KERNBASE) / PGSIZE;
+}
+
+static int
+valid_alloc_page(uint64 pa)
+{
+  return pa >= alloc_lo && pa < alloc_hi &&
+         (pa & (PGSIZE - 1)) == 0;
+}
+
+/* 调用者必须持有 kmem.lock。 */
+static void free_push_locked(uint64 p) {
   struct run *r = (struct run *)p;
-  r->next = freelist;
-  freelist = r;
-  free_pages++;
+  r->next = kmem.freelist;
+  kmem.freelist = r;
+  kmem.free_pages++;
 }
 
 /*
@@ -57,11 +78,16 @@ static void free_push(uint64 p) {
  */
 void kinit(void) {
   uint64 p, npages, i;
+  initlock(&kmem.lock, "kmem");
   //计算可分配物理页的范围
   alloc_lo = PGROUNDUP((uint64)kernel_end);//kernel_end 是链接脚本导出的符号，表示内核镜像结束位置。
   alloc_hi = PHYSTOP - (uint64)LAB3_MEMCAP_DELTA * PGSIZE;//PHYSTOP 是 QEMU RAM 的结束位置：
-  freelist = 0;
-  free_pages = 0;
+  kmem.freelist = 0;
+  kmem.free_pages = 0;
+  kmem.shared_pages = 0;
+  kmem.cow_copies = 0;
+  for (i = 0; i < TOTAL_PAGES; i++)
+    kmem.refcnt[i] = 0;
   if (alloc_hi <= alloc_lo) return;
   npages = (alloc_hi - alloc_lo) / PGSIZE;
 
@@ -74,7 +100,7 @@ void kinit(void) {
     for (p = alloc_hi; p != alloc_lo;) {
       p -= PGSIZE;
       junk_page((void *)p);
-      free_push(p);
+      free_push_locked(p);
     }
   } else if (LAB3_ALLOC_ORDER == 2) {//从中点附近开始交替分配
     /* midpoint, midpoint-1, midpoint+1, midpoint-2, ... */
@@ -84,13 +110,13 @@ void kinit(void) {
       uint64 index = (k & 1) ? center + (k + 1) / 2 : center - k / 2;
       p = alloc_lo + index * PGSIZE;
       junk_page((void *)p);
-      free_push(p);
+      free_push_locked(p);
     }
   } else {//降序分配
     /* Prepending low-to-high makes the highest page the first allocation. */
     for (p = alloc_lo; p < alloc_hi; p += PGSIZE) {
       junk_page((void *)p);
-      free_push(p);
+      free_push_locked(p);
     }
   }//kinit把所有可用物理页串成一个单向空闲链表
 }
@@ -98,21 +124,133 @@ void kinit(void) {
 /* LAB3：取出一个空闲页并清零；失败时返回 0。 */
 void *kalloc(void) {
   /* 取出一个空闲页；清零动作既初始化新页，也隔离上一个拥有者的数据。 */
-  struct run *r = freelist;
-  if (r) { freelist = r->next; free_pages--; zero_page(r); }
+  acquire(&kmem.lock);
+  struct run *r = kmem.freelist;
+  if (r) {
+    kmem.freelist = r->next;
+    kmem.free_pages--;
+    kmem.refcnt[page_index((uint64)r)] = 1;
+  }
+  release(&kmem.lock);
+  if (r)
+    zero_page(r);
   return r;
 }
 
-/* LAB3：释放页并重新加入空闲链表；非法、未对齐地址直接忽略。 */
+/* LAB5：仅最后一个引用释放时才毒化页面并归还空闲链表。 */
 void kfree(void *pa) {
   uint64 p = (uint64)pa;
-  if (p < alloc_lo || p >= alloc_hi || (p & (PGSIZE - 1))) return;
-  /* 先填充垃圾数据，再重新挂入链表，便于暴露释放后继续使用。 */
-  junk_page(pa);
-  free_push(p);
+  if (!valid_alloc_page(p))
+    return;
+
+  acquire(&kmem.lock);
+  uint64 idx = page_index(p);
+  if (kmem.refcnt[idx] < 1)
+    panic("kfree: refcnt underflow");
+  kmem.refcnt[idx]--;
+  if (kmem.refcnt[idx] == 1)
+    kmem.shared_pages--;
+  if (kmem.refcnt[idx] == 0) {
+    junk_page(pa);
+    free_push_locked(p);
+  }
+  release(&kmem.lock);
 }
 
-uint64 vm_free_count(void) { return free_pages; }
+void
+kref_inc(uint64 pa)
+{
+  if (!valid_alloc_page(pa))
+    panic("kref_inc: invalid pa");
+  acquire(&kmem.lock);
+  uint64 idx = page_index(pa);
+  if (kmem.refcnt[idx] < 1)
+    panic("kref_inc: free page");
+  if (kmem.refcnt[idx] == (uint16)-1)
+    panic("kref_inc: overflow");
+  if (kmem.refcnt[idx] == 1)
+    kmem.shared_pages++;
+  kmem.refcnt[idx]++;
+  release(&kmem.lock);
+}
+
+uint16
+kref_get(uint64 pa)
+{
+  if (!valid_alloc_page(pa))
+    return 0;
+  acquire(&kmem.lock);
+  uint16 count = kmem.refcnt[page_index(pa)];
+  release(&kmem.lock);
+  return count;
+}
+
+uint64
+kshared_count(void)
+{
+  acquire(&kmem.lock);
+  uint64 count = kmem.shared_pages;
+  release(&kmem.lock);
+  return count;
+}
+
+uint64
+kcow_copy_count(void)
+{
+  acquire(&kmem.lock);
+  uint64 count = kmem.cow_copies;
+  release(&kmem.lock);
+  return count;
+}
+
+uint64
+kfree_count(void)
+{
+  acquire(&kmem.lock);
+  uint64 count = kmem.free_pages;
+  release(&kmem.lock);
+  return count;
+}
+
+uint64
+vm_free_count(void)
+{
+  return kfree_count();
+}
+
+void
+kref_selftest(void)
+{
+  uint64 free0 = kfree_count();
+  uint64 shared0 = kshared_count();
+  uint8 *p = kalloc();
+  if (!p || kref_get((uint64)p) != 1)
+    panic("kref selftest: alloc");
+
+  for (uint64 i = 0; i < PGSIZE; i++)
+    p[i] = 0xa5;
+  kref_inc((uint64)p);
+  kref_inc((uint64)p);
+  if (kref_get((uint64)p) != 3 || kshared_count() != shared0 + 1)
+    panic("kref selftest: share");
+
+  kfree(p);
+  if (kref_get((uint64)p) != 2 || p[0] != 0xa5 ||
+      p[PGSIZE - 1] != 0xa5)
+    panic("kref selftest: release 2");
+  kfree(p);
+  if (kref_get((uint64)p) != 1 || p[0] != 0xa5 ||
+      p[PGSIZE - 1] != 0xa5)
+    panic("kref selftest: release 1");
+  kfree(p);
+  if (kref_get((uint64)p) != 0 || p[PGSIZE - 1] != 0x5a ||
+      kfree_count() != free0 ||
+      kshared_count() != shared0 || kcow_copy_count() != 0)
+    panic("kref selftest: restore");
+
+  printf("lab5 kref selftest: pass free=%ld shared=%ld copies=%ld\n",
+         (long)free0, (long)shared0, (long)kcow_copy_count());
+}
 
 /*
  * LAB3：沿 Sv39 的 L2 -> L1 -> L0 三级索引查找最终 PTE。
