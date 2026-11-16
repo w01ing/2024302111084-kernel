@@ -49,8 +49,12 @@ int mappages(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm);
 int vm_map(pagetable_t pt, uint64 va, uint64 size, uint64 pa, uint64 perm);
 /* 删除叶子映射；do_free 控制是否释放映射的物理页。 */
 int vm_unmap(pagetable_t pt, uint64 va, uint64 npages, int do_free);
-/* 将源用户空间逐页深拷贝到目标页表。 */
+/* 以只读共享/COW 方式把源用户空间映射到目标页表。 */
 int vm_copy(pagetable_t dst, pagetable_t src, uint64 sz);
+/* 分离一个 COW 写入页；独占页直接恢复写权限。 */
+int cow_alloc(pagetable_t pt, uint64 va);
+/* 校验用户区间权限；写校验会先分离 COW 页。 */
+int uvm_check_range(pagetable_t pt, uint64 va, uint64 len, uint64 want_perm);
 /* 检查用户权限并将用户 VA 转换为内核可访问的 PA。 */
 uint64 walkaddr(pagetable_t pt, uint64 va, int write);
 /* 在内核缓冲区和用户地址空间之间进行跨页安全复制。 */

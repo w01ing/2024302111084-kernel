@@ -127,7 +127,17 @@ usertrap(void)
     // 分发系统调用，返回值写到 a0（RISC-V 的返回值寄存器）
     p->trapframe->a0 = (uint64)syscall_dispatch(p->trapframe);
 
-  // ---- 分支四：其他异常/缺页 ----
+  // ---- 分支四：用户态 store page fault，尝试分离合法 COW 页 ----
+  } else if (cause == 15) {
+    if (LAB5_KILL_SEMANTICS == 0 && p->killed)
+      proc_exit(-1);
+    if (cow_alloc(p->pagetable, r_stval()) < 0) {
+      printf("user COW fault rejected sepc=%lx stval=%lx\n",
+             r_sepc(), r_stval());
+      p->killed = 1;
+    }
+
+  // ---- 分支五：其他异常/缺页 ----
   } else {
     // 打印诊断信息：cause、出错的用户 PC、出错的地址（stval）
     printf("user trap fault scause=%lx sepc=%lx stval=%lx\n",

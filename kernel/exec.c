@@ -163,6 +163,8 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->cpu_ticks = 0;
   p->last_slice_ticks = 0;
+  p->cow_copies = 0;
+  p->cow_budget_warned = 0;
   p->state = UNUSED;
 }
 
@@ -234,6 +236,8 @@ found:
   p->wait_ticks = 0;        // 在就绪队列里等待的 tick 数（用于优先级提升/老化）
   p->cpu_ticks = 0;         // 累计占用 CPU 的 tick 数
   p->last_slice_ticks = 0;  // 上一个时间片用了多少 tick（MLFQ 降级判断用）
+  p->cow_copies = 0;
+  p->cow_budget_warned = 0;
 
   // 注意：这里没有 release(&p->lock)！
   // 返回时仍持有锁，调用方（userinit / fork / exec 等）负责在

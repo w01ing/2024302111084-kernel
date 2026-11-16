@@ -51,6 +51,8 @@ struct proc {
   int mlfq_level;
   int priority;
   int wait_ticks;
+  uint64 cow_copies;
+  int cow_budget_warned;
 };
 
 struct cpu {

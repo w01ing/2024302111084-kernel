@@ -9,6 +9,7 @@
 #include "riscv.h"
 #include "memlayout.h"
 #include "course_sid.h"
+#include "proc.h"
 #include "spinlock.h"
 #include "trap.h"
 #include "vm.h"
@@ -32,6 +33,7 @@ static struct {
   uint64 shared_pages;
   uint64 cow_copies;
 } kmem;
+static struct spinlock cow_lock;
 static uint64 alloc_lo, alloc_hi;
 /* 内核根页表放在静态数组中，避免建立内核页表时依赖自身的映射。 */
 static uint64 kernel_pt_store[512] __attribute__((aligned(PGSIZE)));
@@ -79,6 +81,7 @@ static void free_push_locked(uint64 p) {
 void kinit(void) {
   uint64 p, npages, i;
   initlock(&kmem.lock, "kmem");
+  initlock(&cow_lock, "cow");
   //计算可分配物理页的范围
   alloc_lo = PGROUNDUP((uint64)kernel_end);//kernel_end 是链接脚本导出的符号，表示内核镜像结束位置。
   alloc_hi = PHYSTOP - (uint64)LAB3_MEMCAP_DELTA * PGSIZE;//PHYSTOP 是 QEMU RAM 的结束位置：
@@ -538,109 +541,157 @@ void vm_free_user(pagetable_t pt, uint64 sz) {
   kfree(pt);
 }
 
-/*
- * LAB3：复制用户地址空间。
- * fork 不共享用户物理页，而是为每个源页分配独立目标页并复制内容；
- * 任意一步失败都释放目标地址空间，保证父地址空间不被破坏。
- */
-int vm_copy(pagetable_t dst, pagetable_t src, uint64 sz) {
-  /*
-   * 用户地址空间的深拷贝：把 src 页表中 [0, PGROUNDUP(sz)) 范围
-   * 以及固定栈页 0x40000 的映射复制到 dst 页表中。
-   *
-   * 与写时复制（COW）不同，这里对每个有效映射都：
-   *   - 分配一个新的物理页；
-   *   - 把 src 物理页内容逐字节复制到新物理页；
-   *   - 在 dst 中以相同 R/W/X/U 权限映射新物理页。
-   * 因此父子进程后续写入互不影响，但代价是每个有效页都复制一份。
-   *
-   * 失败路径统一使用 vm_free_user 清理 dst 中已建立的内容，
-   * 保证失败后 dst 不残留泄漏；src 页表在整个过程中不被修改。
-   */
+static int
+share_user_page(pagetable_t dst, pagetable_t src, uint64 va,
+                int *parent_changed)
+{
+  pte_t *sp = walk(src, va, 0);
+  if (!sp || !(*sp & PTE_V))
+    return 0;
 
-  // 遍历 [0, PGROUNDUP(sz)) 范围内的每一页
+  uint64 pa = PTE2PA(*sp);
+  uint64 flags = PTE_FLAGS(*sp);
+  if (flags & PTE_W) {
+    flags = (flags & ~PTE_W) | PTE_COW;
+    *sp = PA2PTE(pa) | flags;
+    *parent_changed = 1;
+  }
+
+  if (mappages(dst, va, PGSIZE, pa, flags & ~PTE_V) < 0)
+    return -1;
+  kref_inc(pa);
+  return 0;
+}
+
+/* LAB5：fork 只共享物理页；原可写页在父子两侧都标记为 COW。 */
+int
+vm_copy(pagetable_t dst, pagetable_t src, uint64 sz)
+{
+  int parent_changed = 0;
+
   for (uint64 va = 0; va < PGROUNDUP(sz); va += PGSIZE) {
+    if (share_user_page(dst, src, va, &parent_changed) < 0)
+      goto bad;
+  }
+  if (share_user_page(dst, src, 0x40000UL, &parent_changed) < 0)
+    goto bad;
 
-    // 在 src 中查找 va 对应的叶子 PTE
-    // walk 的 alloc=0 表示“只查找，不创建新页表页”
-    pte_t *sp = walk(src, va, 0);
+  if (parent_changed)
+    sfence_vma();
+  return 0;
 
-    // src 中该地址没有有效映射：
-    // 释放 dst 中已经复制过的部分，然后返回失败
-    if (!sp || !(*sp & PTE_V)) {
-      vm_free_user(dst, va);
-      return -1;
-    }
+bad:
+  vm_free_user(dst, sz);
+  if (parent_changed)
+    sfence_vma();
+  return -1;
+}
 
-    // 为子进程分配一个新的物理页
-    // 注意这里分配的是 4KB 物理页，kalloc 返回物理地址
-    uint64 pa = (uint64)kalloc();
-    if (!pa) {
-      // 物理内存耗尽：清理 dst 已建立的内容后返回失败
-      vm_free_user(dst, va);
-      return -1;
-    }
+/*
+ * LAB5：分离一个 COW 页。cow_lock 保护从检查旧页引用数到递减旧页
+ * 引用数的完整事务，避免双核同时把 refcnt==2 的页面复制两次。
+ */
+int
+cow_alloc(pagetable_t pt, uint64 va)
+{
+  if (va >= MAXVA)
+    return -1;
+  va = PGROUNDDOWN(va);
 
-    // 把 src 物理页的内容整页复制到新物理页
-    // PTE2PA(*sp)：把 src 叶子 PTE 里的物理页号转回物理地址
-    uint8 *d = (uint8 *)pa;             // 目标（新物理页）
-    uint8 *s = (uint8 *)PTE2PA(*sp);    // 源（src 物理页）
-    for (int i = 0; i < PGSIZE; i++) {
-      d[i] = s[i];
-    }
+  int warn_budget = 0;
+  int warn_pid = 0;
+  uint64 warn_copies = 0;
+  acquire(&cow_lock);
 
-    // 在 dst 页表中建立 va -> pa 的映射
-    // 只保留 R/W/X/U 四个权限位，其余位由 map_one 自己设置
-    // （例如 PTE_V 由 map_one 置上；这里不复制 PTE_V）
-    if (map_one(dst, va, pa,
-                PTE_FLAGS(*sp) & (PTE_R | PTE_W | PTE_X | PTE_U)) < 0) {
-      // 映射失败：释放刚分配的新物理页，再清理 dst
-      kfree((void *)pa);
-      vm_free_user(dst, va);
-      return -1;
+  pte_t *pte = walk(pt, va, 0);
+  if (!pte || !(*pte & PTE_V) || !(*pte & PTE_U)) {
+    release(&cow_lock);
+    return -1;
+  }
+  if (*pte & PTE_W) {
+    release(&cow_lock);
+    return 0;
+  }
+  if (!(*pte & PTE_COW)) {
+    release(&cow_lock);
+    return -1;
+  }
+
+  uint64 old_pa = PTE2PA(*pte);
+  uint64 flags = PTE_FLAGS(*pte);
+  uint16 refs = kref_get(old_pa);
+  if (refs < 1) {
+    release(&cow_lock);
+    return -1;
+  }
+
+  if (refs == 1) {
+    *pte = PA2PTE(old_pa) | ((flags & ~PTE_COW) | PTE_W);
+    sfence_vma();
+    release(&cow_lock);
+    return 0;
+  }
+
+  uint8 *new_page = kalloc();
+  if (!new_page) {
+    release(&cow_lock);
+    return -1;
+  }
+  uint8 *old_page = (uint8 *)old_pa;
+  for (uint64 i = 0; i < PGSIZE; i++)
+    new_page[i] = old_page[i];
+
+  *pte = PA2PTE(new_page) | ((flags & ~PTE_COW) | PTE_W);
+  acquire(&kmem.lock);
+  kmem.cow_copies++;
+  release(&kmem.lock);
+
+  struct proc *p = myproc();
+  if (p) {
+    p->cow_copies++;
+    if (!p->cow_budget_warned && p->cow_copies == LAB5_COW_BUDGET) {
+      p->cow_budget_warned = 1;
+      warn_budget = 1;
+      warn_pid = p->pid;
+      warn_copies = p->cow_copies;
     }
   }
 
-  /*
-   * 单独复制栈页（固定虚拟地址 0x40000）。
-   *
-   * 之所以要单独处理栈页：
-   *   - 栈在 xv6 风格的布局中位于固定地址 0x40000；
-   *   - 它不一定落在 [0, PGROUNDUP(sz)) 范围内，
-   *     所以上面的循环可能没有覆盖到它。
-   *
-   * 如果 src 中没有映射 0x40000（例如非 sh 场景），
-   * 就跳过这一步，不做任何处理。
-   */
-  pte_t *stack = walk(src, 0x40000, 0);
+  kfree((void *)old_pa);
+  sfence_vma();
+  release(&cow_lock);
 
-  if (stack && (*stack & PTE_V)) {
-    // src 中栈页存在：分配新物理页并复制整页内容
-    uint64 pa = (uint64)kalloc();
-    if (!pa) {
-      // 分配失败：清理 dst 中 [0, sz) 范围，返回失败
-      vm_free_user(dst, sz);
+  if (warn_budget)
+    printf("[cow] pid=%d reached LAB5_COW_BUDGET=%d at copies=%ld; continuing\n",
+           warn_pid, LAB5_COW_BUDGET, (long)warn_copies);
+  return 0;
+}
+
+int
+uvm_check_range(pagetable_t pt, uint64 va, uint64 len, uint64 want_perm)
+{
+  if (len == 0)
+    return 0;
+  if (va >= MAXVA || va + len < va || va + len > MAXVA)
+    return -1;
+
+  uint64 page = PGROUNDDOWN(va);
+  uint64 last = PGROUNDDOWN(va + len - 1);
+  for (;;) {
+    pte_t *pte = walk(pt, page, 0);
+    if (!pte || !(*pte & PTE_V) || !(*pte & PTE_U))
       return -1;
+    if ((want_perm & PTE_W) && !(*pte & PTE_W)) {
+      if (!(*pte & PTE_COW) || cow_alloc(pt, page) < 0)
+        return -1;
+      pte = walk(pt, page, 0);
     }
-
-    // 整页复制 src 栈页内容到新物理页
-    uint8 *d = (uint8 *)pa;
-    uint8 *s = (uint8 *)PTE2PA(*stack);
-    for (int i = 0; i < PGSIZE; i++) {
-      d[i] = s[i];
-    }
-
-    // 在 dst 中建立 0x40000 -> pa 的映射，权限同样只取 R/W/X/U
-    if (map_one(dst, 0x40000, pa,
-                PTE_FLAGS(*stack) & (PTE_R | PTE_W | PTE_X | PTE_U)) < 0) {
-      // 映射失败：释放刚分配的新物理页，再清理 dst
-      kfree((void *)pa);
-      vm_free_user(dst, sz);
+    if (!pte || ((*pte & want_perm) != want_perm))
       return -1;
-    }
+    if (page == last)
+      break;
+    page += PGSIZE;
   }
-
-  // 所有页复制成功
   return 0;
 }
 
@@ -664,8 +715,24 @@ int copyin(void *dst, uint64 srcva, uint64 len) {
 }
 /* LAB3：按页边界把内核数据复制到用户地址空间。 */
 int copyout(uint64 dstva, const void *src, uint64 len) {
-  /* 与 copyin 对称，但目标页必须具有用户可写权限。 */
-  const uint8 *s=src; while(len){uint64 pa=walkaddr(active_user_pt,dstva,1);if(!pa)return -1;uint64 n=PGSIZE-(dstva&(PGSIZE-1));if(n>len)n=len;for(uint64 i=0;i<n;i++)((uint8*)pa)[i]=s[i];s+=n;dstva+=n;len-=n;}return 0;
+  /* 内核写入用户页前也必须触发 COW，避免 read/wait 等调用误报只读。 */
+  if (uvm_check_range(active_user_pt, dstva, len, PTE_W) < 0)
+    return -1;
+  const uint8 *s = src;
+  while (len) {
+    uint64 pa = walkaddr(active_user_pt, dstva, 1);
+    if (!pa)
+      return -1;
+    uint64 n = PGSIZE - (dstva & (PGSIZE - 1));
+    if (n > len)
+      n = len;
+    for (uint64 i = 0; i < n; i++)
+      ((uint8 *)pa)[i] = s[i];
+    s += n;
+    dstva += n;
+    len -= n;
+  }
+  return 0;
 }
 /* LAB3：安全复制用户字符串，遇到 NUL 成功，越界或超长则失败。 */
 int copyinstr(char *dst, uint64 srcva, uint64 max) {

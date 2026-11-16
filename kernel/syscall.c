@@ -74,6 +74,8 @@ sys_read(struct trapframe *tf)
     return 0;
   if (!address)
     return -1;
+  if (uvm_check_range(myproc()->pagetable, address, count, PTE_W) < 0)
+    return -1;
   int n = console_read(buffer, count);
   if (n < 0 || copyout(address, buffer, n) < 0)
     return -1;

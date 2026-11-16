@@ -415,6 +415,7 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PTE_W (1L << 2) // 允许 store；copyout 和用户写入要求此位。
 #define PTE_X (1L << 3) // 允许取指；代码页通常设置此位。
 #define PTE_U (1L << 4) // 允许 U 态访问；内核页表页和 MMIO 不设置此位。
+#define PTE_COW (1L << 8) // LAB5：原本可写、当前通过 COW 只读共享。
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10) // 物理页号 PPN 放入 PTE[53:10]。
