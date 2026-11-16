@@ -7,7 +7,7 @@ struct cpu;
 
 struct spinlock {
   uint locked;       // 锁是否被持有
-  char *name;        // 锁的名字（调试用）
+  const char *name;  // 锁的名字（调试用）
   struct cpu *cpu;   // 持有该锁的 CPU
 };
 

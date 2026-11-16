@@ -296,7 +296,7 @@ procinit(void)
   initlock(&pid_lock, "pid");
   initlock(&wait_lock, "wait");
   initlock(&ticks_lock, "ticks");
-  // 彩票调度状态用"读时间戳 ^ 课程号"做随机种子。
+  // 彩票调度状态用"读时间戳 ^ 学号"做随机种子。
   // 这里在单线程启动阶段执行，无竞争，普通写即可；此后由 lottery 相关逻辑更新。
   lottery_state = r_time() ^ COURSE_SID;
 
@@ -343,13 +343,12 @@ userinit(void)
   set_name(p, "sh");
 
   // 记录全局 initproc 指针（内核可据此找到第一个用户进程，
-  // 例如在退出时等待所有子进程清理完）
   initproc = p;
 
   // 把进程状态设为"可运行"，之后调度器（scheduler）就会把它调度到 CPU 上
   p->state = RUNNABLE;
 
-  // 将该进程的用户页表安装为当前 CPU 的活动页表？
+  // 将该进程的用户页表安装为当前 CPU 的活动页表
   // 让后续 trap 返回用户态时能直接用上（或者只是建立一个全局映射关系）
   vm_set_user_pagetable(p->pagetable);
 
@@ -579,7 +578,6 @@ scheduler(void)
     c->proc = p;                 // 记录当前核正在跑哪个进程（mycpu()->proc 查询用）
 
     // 把这个进程的用户页表设为本核的活动页表。
-    // 课程 VM 设计里，这可能是设置 satp、或记录"当前用户页表"供内核访问用户内存用。
     vm_set_user_pagetable(p->pagetable);
 
     // ---- 上下文切换：从调度器的 context 切到进程的内核 context ----

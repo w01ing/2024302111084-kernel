@@ -104,6 +104,9 @@ MLFQ 层级、优先级、等待 tick 和统计计数。新进程先取策略默
 - `lottery_observe`：自写的 60:20 与 20:60 两组反向改票检查。
 - `lottery_reticket`：同一对子进程存活期间从 60:20 改为 20:60，分别采样
   改票前后 CPU 份额；完整用例与实测归档见 `docs/lab4-scheduler-selftests.md`。
+- `lottery_dynamic`：ID 4 专项测试；同一对子进程先测默认 13:13，其中一个
+  主动睡眠 25 次后应封顶 32 票，再逐短窗口观察累计 CPU 份额向 32:13
+  （约 71%:29%）收敛。
 - `alt`：两个计算进程的抢占交错检查。
 - Ctrl-P：打印 PID、状态、CPU tick、当前片长、票数和名称。
 - `badaccess`、`guardtest`、`crosscopy`、`memcap`：Lab3 回归；启动时保留

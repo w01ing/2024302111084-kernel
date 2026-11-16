@@ -328,7 +328,7 @@ main(void)
    * 打开 S 态外部中断后，第一次 sret 就能进入用户 read。
    */
   procinit();
-  userinit();
+  userinit(); 
   timerinit();
   w_sie(r_sie() | SIE_SEIE | SIE_STIE);//S 态外部中断使能&S 态定时器中断使能
 

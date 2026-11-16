@@ -87,3 +87,51 @@ PASS: lottery_reticket
 结论：固定票数测试的两组份额方向正确；同进程动态改票测试在 PID 不变的
 两个连续阶段中发生明显份额反转。动态用例连续三次通过，`setickets` 的
 运行时修改生效。
+
+## 用例三：ID 4 动态加票与短窗口收敛
+
+源码：`user/lottery_dynamic.c`
+
+目的：同一对进程先以默认票数 13:13 竞争，确认累计份额接近 50%；随后
+第一个进程调用 `pause(1)` 主动让出 25 次。其前 19 次让票数从 13 增加到
+32，后续 6 次验证上限不再增长；第二个纯计算进程始终保持 13 票。加票
+阶段预留 200 tick，确保短窗口采样开始时两个进程都已恢复为纯计算。动态
+阶段按 20 tick 短窗口打印瞬时份额和累计份额，最终累计份额应接近
+`32/(32+13)`，即约 71%。
+
+运行命令：
+
+```text
+sh> lottery_dynamic
+```
+
+程序打印 `INSPECT` 后保留 1000 tick 的观测期；此时按 `Ctrl-P`，进程表中
+的两个测试子进程应分别显示 32 和 13 票。
+彩票调度允许单个窗口随机波动，验收看累计列逐渐稳定以及最终
+`PASS: lottery_dynamic`。
+
+实际运行摘要：
+
+```text
+PHASE baseline tickets=13:13 expected_share=50
+...
+PHASE dynamic tickets=32:13 expected_share=71
+WINDOW dynamic_1 cpu=15:4 share=78 cumulative=78
+WINDOW dynamic_2 cpu=12:8 share=60 cumulative=69
+WINDOW dynamic_3 cpu=16:3 share=84 cumulative=74
+...
+WINDOW dynamic_8 cpu=14:6 share=70 cumulative=73
+INSPECT press Ctrl-P now; pid 3 should have 32 tickets, pid 4 should have 13
+
+PID STATE CPU SLICE TICKETS NAME
+3 runble 843 1 32 lottery_dynamic
+4 run 382 0 13 lottery_dynamic
+
+RESULT baseline_13_13 = 73:78 share=48
+RESULT dynamic_32_13 = 113:41 share=73
+PASS: lottery_dynamic
+```
+
+结论：默认等票阶段的累计占比为 48%，接近理论 50%；主动让出阶段后
+`Ctrl-P` 观察到票数为 32:13，证明票数达到且没有超过 32；动态阶段累计
+占比为 73%，接近理论值 71%，短窗口累计列稳定在理论值附近。

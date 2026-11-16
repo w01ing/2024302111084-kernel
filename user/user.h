@@ -50,7 +50,9 @@ void *malloc(uint);
 void free(void *);
 // lab4 观测规范(见 support/schedstat.patch 语义定义;pid=-1 查自身)
 int schedstat(int pid, int *cpu_ticks, int *last_slice_ticks);
-// lab4 时间戳观测(测试框架计时依赖):返回 time CSR 计数(非 tick),见 support/schedstat.patch
+// lab4 时间戳观测(bench 的接口依赖):读墙钟 tick
 unsigned long time_rdtime(void);
 // lab4 策略测试:设置本进程票数(彩票/步长策略)
 int setickets(int tickets);
+// lab5 计数观测(规范 §2.2 定稿):物理页复制计数
+unsigned long long pmc(int which);   // 0=累计复制次数,1=当前共享页数

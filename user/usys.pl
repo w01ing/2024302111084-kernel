@@ -46,3 +46,4 @@ entry("sync");
 entry("schedstat");
 entry("time_rdtime");
 entry("setickets");
+entry("pmc");

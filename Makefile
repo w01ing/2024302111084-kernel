@@ -12,7 +12,8 @@ QEMU = qemu-system-riscv64
 # LAB2-STAGE4：三个链接基址为 0 的内嵌用户程序。
 UPROGS = sh hi spin badaccess memcap guardtest crosscopy
 UPROGS += bench lottery_test stride_test
-UPROGS += alt lottery_observe lottery_reticket
+UPROGS += alt lottery_observe lottery_reticket lottery_dynamic
+UPROGS += zerocopy cowpair echo
 
 # LAB2-STAGE4：用户程序使用与内核一致的 freestanding RISC-V 选项，
 # 额外的 -I. 让 user/*.c 能找到根目录下的 kernel/*.h。
